@@ -1,6 +1,13 @@
 .include "constants.inc"
 
 .include "header.inc"
+
+.segment "ZEROPAGE"
+player_x: .res 1
+player_y: .res 1
+.exportzp player_x, player_y
+
+
 .segment "CODE"
 .proc irq_handler
   RTI
@@ -13,6 +20,9 @@
   LDA #$00 ; TELLS it to prepare for transfer of sprite data from address $0200 
   STA OAMADDR
   LDA #$02 ; once stored to OAMDMA, high speed transfer begins of 256 bytes from $0200 - $02ff into OAM
+
+  JSR draw_player
+
   STA OAMDMA
   LDA #$00
   STA PPUSCROLL ; $2005 IS PPU SCROLL, it takes two writes: X Scroll , Y Scroll
@@ -108,11 +118,8 @@ set_steel_brick_palette:
   CPY #$08 ; 
   BNE set_steel_brick_palette
 
-; display_tile subroutine
-; tile_index -> $00
-; low byte -> $01
-; high byte -> $02
-LDX #$05 ; #$05 is the brick tile
+
+LDX #$02 ; #$02 is the brick tile
 STX $00
 
 LDX #$69 ; low byte
@@ -122,66 +129,35 @@ LDX #$21; high byte
 STX $02
 jsr display_tile
 
-jsr display_tile
+; jsr display_tile
 JMP exit ; jump to exit to skip the display_tile subroutine
-display_tile:
-  LDA PPUSTATUS; 
-  LDA $02 ; LOADING highbyte to the accumulator
-  STA PPUADDR
-  LDA $01 ; LOADING lowbyte to the accumulator
-  STA PPUADDR
 
-  LDA $00
-  STA PPUDATA
-  
-  rts ; return from subroutine
 
 exit:
 ; Y-COORD, TILE NUMBER, ATTRIBUTES, X-COORD
 ; .byte $70, $04, $00, $80 ; need 4 bytes to describe a single sprite
-ldx #$90; Y-Coord
-STX $01
-LDX #$04 ; Tile Number
-STX $02
-LDX #$00 ; attributes
-STX $03
-LDX #$80 ; X-coord
-STX $04
+; ldx #$90; Y-Coord
+; STX $01
+; LDX #$04 ; Tile Number
+; STX $02
+; LDX #$00 ; attributes
+; STX $03
+; LDX #$80 ; X-coord
+; STX $04
 
-jsr display_sprite
+; jsr display_sprite
 
-ldx #$98; Y-Coord
-STX $01
-LDX #$14 ; Tile Number
-STX $02
-LDX #$00 ; attributes
-STX $03
-LDX #$80 ; X-coord
-STX $04
+; ldx #$98; Y-Coord
+; STX $01
+; LDX #$14 ; Tile Number
+; STX $02
+; LDX #$00 ; attributes
+; STX $03
+; LDX #$80 ; X-coord
+; STX $04
 
-jsr display_sprite
+; jsr display_sprite
 JMP vblankwait
-; dislay_sprite subroutine:
-; parameters:
-; how far we are from sprite buffer -> $1F (SHOULD ALREADY BE THERE)
-; Y-position of sprite -> $01
-; TILE NUMBER -> $02
-; ATTRIBUTES -> $03
-; X-COORD -> $04
-display_sprite:
-  LDX $1F ; X holds how far we are from sprite buffer (which is stored in $1f)
-  LDY #$00 ; Y is our index for the loop, we loop until Y is 4
-  write_sprite_loop:
-    LDA $01, Y ; accumulator holds the current sprite characteristic, which will be address $01 with an offset of Y
-    STA $0200, X 
-    INX
-    INY
-    CPY #$04
-    BNE write_sprite_loop
-  ; store what is in X back to $1f, to know how far we are from the sprite buffer
-  STX $1F
-  rts
-
 
 vblankwait:       ; wait for another vblank before continuing
   BIT PPUSTATUS
@@ -195,6 +171,123 @@ vblankwait:       ; wait for another vblank before continuing
 forever:
   JMP forever
 .endproc
+
+
+
+.proc draw_player
+; save registers
+  PHP
+  PHA
+  TXA
+  PHA
+  TYA
+  PHA
+  
+  ; store tile numbers
+  ; write player ship tile numbers
+  ; tile numbers were changed to be able to draw 
+  LDA #$01 ; top left
+  STA $0201
+  LDA #$03 ; top right
+  STA $0205
+  LDA #$02 ; bottom left
+  STA $0209
+  LDA #$04 ; bottom right
+  STA $020d
+  ; store attributes
+; use palette 0
+  LDA #$00
+  STA $0202
+  STA $0206
+  STA $020a
+  STA $020e
+
+
+  ; store tile locations
+  ; top left tile:
+  LDA player_y
+  STA $0200
+  LDA player_x
+  STA $0203
+
+  ; top right tile (x + 8):
+  LDA player_y
+  STA $0204
+  LDA player_x
+  CLC
+  ADC #$08
+  STA $0207
+
+  ; bottom left tile (y + 8):
+  LDA player_y
+  CLC
+  ADC #$08
+  STA $0208
+  LDA player_x
+  STA $020b
+
+  ; bottom right tile (x + 8, y + 8)
+  LDA player_y
+  CLC
+  ADC #$08
+  STA $020c
+  LDA player_x
+  CLC
+  ADC #$08
+  STA $020f
+
+  ; restore registers and return
+   PLA
+  TAY
+  PLA
+  TAX
+  PLA
+  PLP
+  RTS
+.endproc
+
+
+; display_tile subroutine
+; tile_index -> $00
+; low byte -> $01
+; high byte -> $02
+.proc display_tile
+
+  LDA PPUSTATUS; 
+  LDA $02 ; LOADING highbyte to the accumulator
+  STA PPUADDR
+  LDA $01 ; LOADING lowbyte to the accumulator
+  STA PPUADDR
+
+  LDA $00
+  STA PPUDATA
+  
+  rts ; return from subroutine
+.endproc
+
+
+; dislay_sprite subroutine:
+; parameters:
+; how far we are from sprite buffer -> $1F (SHOULD ALREADY BE THERE)
+; Y-position of sprite -> $01
+; TILE NUMBER -> $02
+; ATTRIBUTES -> $03
+; X-COORD -> $04
+.proc display_sprite
+  LDX $1F ; X holds how far we are from sprite buffer (which is stored in $1f)
+  LDY #$00 ; Y is our index for the loop, we loop until Y is 4
+  write_sprite_loop:
+    LDA $01, Y ; accumulator holds the current sprite characteristic, which will be address $01 with an offset of Y
+    STA $0200, X 
+    INX
+    INY
+    CPY #$04
+    BNE write_sprite_loop
+  ; store what is in X back to $1f, to know how far we are from the sprite buffer
+  STX $1F
+  rts
+.endproc
+
 
 .segment "VECTORS"
 .addr nmi_handler, reset_handler, irq_handler
@@ -228,4 +321,4 @@ sprites:
 
 .segment "CHR"
 ; .res 8192 ; reservar 8,179 bytes of empty space 
-.incbin "backgroundsProyecto.chr"
+.incbin "butterfly.chr"
