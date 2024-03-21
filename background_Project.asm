@@ -95,7 +95,7 @@ LDA PPUSTATUS
    STX $00
    ADC $00 ; accumulator holds #$40 + X
   STA PPUADDR
-  LDA #$06; $06 IS THE TILE NUMBER of the STEEL BRICK
+  LDA #$03; $03 IS THE TILE NUMBER of the STEEL BRICK
 
   STA PPUDATA
   INX
@@ -105,7 +105,7 @@ LDA PPUSTATUS
 LDY #$00
 
 set_steel_brick_palette:
-  ; finally, attribute table -> this seems to not be working
+ 
   LDA PPUSTATUS
   LDA #$23
   STA PPUADDR
@@ -260,7 +260,7 @@ forever:
 
 
   LDA player_y
-  CMP #$e0
+  CMP #$c8
   BCS change_to_right
 
   LDA player_y 
