@@ -5,6 +5,7 @@
 .segment "ZEROPAGE"
 player_x: .res 1
 player_y: .res 1
+player_dir: .res 1
 .exportzp player_x, player_y
 
 
@@ -21,6 +22,7 @@ player_y: .res 1
   STA OAMADDR
   LDA #$02 ; once stored to OAMDMA, high speed transfer begins of 256 bytes from $0200 - $02ff into OAM
 
+  JSR update_player
   JSR draw_player
 
   STA OAMDMA
@@ -246,6 +248,51 @@ forever:
   RTS
 .endproc
 
+.proc update_player
+  PHP
+  PHA
+  TXA
+  PHA
+  TYA
+  PHA
+
+  LDA player_x
+  CMP #$e0
+  BCC not_at_right_edge
+  ; if BCC is not taken, we are greater than $e0
+  LDA #$00
+  STA player_dir    ; start moving left
+  JMP direction_set ; we already chose a direction,
+                    ; so we can skip the left side check
+not_at_right_edge:
+  LDA player_x
+  CMP #$10
+  BCS direction_set
+  ; if BCS not taken, we are less than $10
+  LDA #$01
+  STA player_dir   ; start moving right
+direction_set:
+  ; now, actually update player_x
+  LDA player_dir
+  CMP #$01
+  BEQ move_right
+  ; if player_dir minus $01 is not zero,
+  ; that means player_dir was $00 and
+  ; we need to move left
+  DEC player_x
+  JMP exit_subroutine
+move_right:
+  INC player_x
+exit_subroutine:
+  ; all done, clean up and return
+  PLA
+  TAY
+  PLA
+  TAX
+  PLA
+  PLP
+  RTS
+.endproc
 
 ; display_tile subroutine
 ; tile_index -> $00
