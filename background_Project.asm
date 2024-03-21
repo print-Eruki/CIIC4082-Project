@@ -6,10 +6,11 @@
 player_x: .res 1
 player_y: .res 1
 player_dir: .res 1
-.exportzp player_x, player_y
+.exportzp player_x, player_y, player_dir
 
 
 .segment "CODE"
+
 .proc irq_handler
   RTI
 .endproc
@@ -22,7 +23,7 @@ player_dir: .res 1
   STA OAMADDR
   LDA #$02 ; once stored to OAMDMA, high speed transfer begins of 256 bytes from $0200 - $02ff into OAM
 
-  JSR update_player
+  JSR move_left_down_right_up
   JSR draw_player
 
   STA OAMDMA
@@ -248,6 +249,108 @@ forever:
   RTS
 .endproc
 
+
+.proc move_left_down_right_up
+ PHP
+  PHA
+  TXA
+  PHA
+  TYA
+  PHA
+
+
+  LDA player_y
+  CMP #$e0
+  BCS change_to_right
+
+  LDA player_y 
+  CMP #10
+  BCC change_to_left
+
+  LDA player_x
+  CMP #$10
+  BCC change_to_down
+
+  LDA player_x
+  CMP #$e0
+  BCS change_to_up
+
+  
+
+  JMP direction_set ; jump in case we did not cross any of the screen borders
+
+  change_to_down:
+  ; means you were going left before so move to the right twice 
+    INC player_x
+    INC player_x
+    LDA #$02
+    STA player_dir
+    JMP direction_set
+  change_to_up:
+  ; means you were going right before so move to the left twice
+    DEC player_x
+    DEC player_x
+    LDA #$03
+    STA player_dir
+    JMP direction_set
+  change_to_left:
+  ; means you were going up before so move down twice
+    INC player_y
+    INC player_y
+    LDA #$00
+    STA player_dir
+    JMP direction_set
+  change_to_right:
+  ; means you were going down before so move up twice
+    DEC player_y
+    DEC player_y
+    LDA #$01
+    STA player_dir
+    JMP direction_set
+
+  direction_set:
+    LDA player_dir
+    CMP #$02
+    BEQ move_down
+
+    LDA player_dir
+    CMP #$03
+    BEQ move_up
+
+    LDA player_dir
+    CMP #$00
+    BEQ move_left
+
+  ; if we reached this point and we never branched then move right
+  move_right:
+    INC player_x
+    JMP finish
+
+  move_down:
+    INC player_y ; change to y
+    JMP finish
+  move_up:
+    DEC player_y
+    JMP finish
+  
+  move_left:
+    DEC player_x
+
+  
+  finish:
+
+  PLA
+  TAY
+  PLA
+  TAX
+  PLA
+  PLP
+rts
+.endproc
+; moving left -> #$00
+; moving right -> #$01
+; moving down -> #$02
+; moving up -> #$03
 .proc update_player
   PHP
   PHA

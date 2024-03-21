@@ -1,7 +1,7 @@
 .include "constants.inc"
 
 .segment "ZEROPAGE"
-.importzp player_x, player_y
+.importzp player_x, player_y, player_dir
 
 
 .segment "CODE"
@@ -42,6 +42,8 @@ vblankwait2:
   STA player_x
   LDA #$a0
   STA player_y
-  
+  LDA #$00
+  STA player_dir
+
   JMP main
 .endproc
