@@ -6,7 +6,10 @@
 player_x: .res 1
 player_y: .res 1
 player_dir: .res 1
-.exportzp player_x, player_y, player_dir
+player_offset: .res 1
+player_2_x: .res 1
+player_2_y: .res 1
+.exportzp player_x, player_y,player_2_x, player_2_y, player_dir, player_offset
 
 
 .segment "CODE"
@@ -23,10 +26,17 @@ player_dir: .res 1
   STA OAMADDR
   LDA #$02 ; once stored to OAMDMA, high speed transfer begins of 256 bytes from $0200 - $02ff into OAM
 
+  STA OAMDMA
+
+  LDA #$00
+  STA player_offset
   JSR move_left_down_right_up
   JSR draw_player
 
-  STA OAMDMA
+  LDA #$10
+  STA player_offset
+  jsr draw_player
+  ; JSR move_left_down_right_up
   LDA #$00
   STA PPUSCROLL ; $2005 IS PPU SCROLL, it takes two writes: X Scroll , Y Scroll
   STA PPUSCROLL
@@ -176,6 +186,21 @@ forever:
 .endproc
 
 
+.proc check_player_offset_and_swap
+  LDX player_offset
+  ; LDA player_offset
+  CPX #$00
+  BEQ skip_swapping_player_positions
+
+
+  LDA player_2_x
+  STA player_x
+  LDA player_2_y
+  sta player_y
+
+  skip_swapping_player_positions:
+RTS
+.endproc
 
 .proc draw_player
 ; save registers
@@ -186,59 +211,75 @@ forever:
   TYA
   PHA
   
+  ; LDX #$00
+  LDA player_x
+  PHA
+  LDA player_y
+  PHA 
+
+  JSR check_player_offset_and_swap
+
+
   ; store tile numbers
   ; write player ship tile numbers
   ; tile numbers were changed to be able to draw 
+
+
   LDA #$01 ; top left
-  STA $0201
+  STA $0201, X
   LDA #$03 ; top right
-  STA $0205
+  STA $0205, X
   LDA #$02 ; bottom left
-  STA $0209
+  STA $0209, X
   LDA #$04 ; bottom right
-  STA $020d
+  STA $020d, X
   ; store attributes
 ; use palette 0
   LDA #$00
-  STA $0202
-  STA $0206
-  STA $020a
-  STA $020e
+  STA $0202, X
+  STA $0206, X
+  STA $020a, X
+  STA $020e, X
 
 
   ; store tile locations
   ; top left tile:
   LDA player_y
-  STA $0200
+  STA $0200, X
   LDA player_x
-  STA $0203
+  STA $0203, X
 
   ; top right tile (x + 8):
   LDA player_y
-  STA $0204
+  STA $0204, X
   LDA player_x
   CLC
   ADC #$08
-  STA $0207
+  STA $0207, X
 
   ; bottom left tile (y + 8):
   LDA player_y
   CLC
   ADC #$08
-  STA $0208
+  STA $0208, X
   LDA player_x
-  STA $020b
+  STA $020b, X
 
   ; bottom right tile (x + 8, y + 8)
   LDA player_y
   CLC
   ADC #$08
-  STA $020c
+  STA $020c, X
   LDA player_x
   CLC
   ADC #$08
-  STA $020f
+  STA $020f, X
 
+
+PLA ; will contain original player_y
+STA player_y
+PLA 
+STA player_x
   ; restore registers and return
    PLA
   TAY
@@ -257,6 +298,9 @@ forever:
   PHA
   TYA
   PHA
+
+
+
 
 
   LDA player_y
@@ -339,6 +383,9 @@ forever:
   
   finish:
 
+
+
+; if you change player_2_x then you need to reflect it here
   PLA
   TAY
   PLA
