@@ -1,7 +1,7 @@
 .include "constants.inc"
 
 .segment "ZEROPAGE"
-.importzp sprite_offset
+.importzp sprite_offset, player_1_x, player_1_y
 
 .segment "CODE"
 .import main
@@ -40,5 +40,10 @@ vblankwait2:
   LDA #$00
   STA sprite_offset
 
+; set x, y coords for player_1
+  LDA #$50
+  STA player_1_x
+  LDA #$70
+  STA player_1_y
   JMP main
 .endproc
