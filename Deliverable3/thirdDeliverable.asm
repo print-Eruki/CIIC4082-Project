@@ -9,6 +9,7 @@ sprite_offset: .res 1
 choose_sprite_orientation: .res 1
 player_1_x: .res 1
 player_1_y: .res 1
+controller_read_output: .res 1
 .exportzp sprite_offset, player_1_x, player_1_y
 
 .segment "CODE"
@@ -27,6 +28,83 @@ player_1_y: .res 1
   LDA #$00
   STA PPUSCROLL ; $2005 IS PPU SCROLL, it takes two writes: X Scroll , Y Scroll
   STA PPUSCROLL
+
+  LDA #1
+  STA controller_read_output ; store it with 1 so that when that 1 gets passed to the carry flag after 8 left shifts, we can break out of the loop
+
+LatchController:
+  lda #$01
+  STA $4016
+  LDA #$00
+  STA $4016  
+
+; after the following loop: the controller_read_output var will contain the status of all of the buttons (if they were pressed or not) 
+read_controller_loop:
+  LDA $4016
+  lsr A ; logical shift right to place first bit of accumulator to the carry flag
+  ROL controller_read_output ; rotate left, place left most bit in controller_read_output to carry
+  ;  and place what was in carry flag to the right most bit ofcontroller_read_output
+
+  bcc read_controller_loop
+
+; Reads A and the right arrow key to turn right
+ReadA: ; en el original NES controller, la A está a la derecha así que la "S" en el teclado es la A
+  ; LDA $4016
+  LDA controller_read_output
+  AND #%10000001 ; BIT MASK to look if accumulator holds a value different than 0 after performing the AND
+  ; here we are checking to see if the A was pressed
+  BEQ ReadADone
+
+  ; if A is pressed, move sprite to the right
+  LDA player_1_x
+  CLC
+  ADC #$01 ; x = x + 1
+  STA player_1_x
+
+  ReadADone:
+
+; reads B and the left arrow key 
+ReadB: ; la "A" en el teclado de la computadora es la B en el NES
+  LDA controller_read_output
+  AND #%01000010 ; BIT MASK to look if accumulator holds a value different than 0
+  BEQ ReadBDone
+
+  ; if A is pressed, move sprite to the right
+  LDA player_1_x
+  SEC ; make sure the carry flag is set for subtraction
+  SBC #$01 ; X = X - 1
+  sta player_1_x
+ 
+  ReadBDone:
+
+ReadUp:
+  LDA controller_read_output
+  AND #%00001000
+  BEQ ReadUpDone
+
+  ; if Up is pressed, move sprite up
+  ; to move UP, we subtract from Y coordinate
+  LDA player_1_y
+  SEC 
+  SBC #$01 ; Y = Y - 1
+  STA player_1_y
+
+  ReadUpDone:
+  
+ReadDown:
+  LDA controller_read_output
+  AND #%00000100
+  BEQ ReadDownDone
+
+  ; if Up is pressed, move sprite up
+  ; to move UP, we subtract from Y coordinate
+  LDA player_1_y
+  CLC 
+  ADC #$01 ; Y = Y + 1
+  STA player_1_y
+
+ReadDownDone:
+
 
   ; draw player subroutine:
   ; push to stack the Y coordinate and the X coordinate
@@ -56,9 +134,6 @@ player_1_y: .res 1
   ; LDA #$80
   ; STA current_player_x
   ; jsr draw_player
-
-
-
   RTI
 .endproc
 
