@@ -36,9 +36,6 @@ choose_sprite_orientation: .res 1
   STX PPUADDR
   LDX #$00
   STX PPUADDR
-;   LDA #$08 ; HERE we are choosing a color -> THE FIRST COLOR for the palette
-;   STA PPUDATA ; storing color to PPUDATA
-
 
   load_palettes:
     LDA palettes, X
@@ -46,57 +43,6 @@ choose_sprite_orientation: .res 1
     INX
     CPX #$20 ; amount of total colors in palettes
     BNE load_palettes
-
-
-;  LDX #$00
-;   write_sprites:
-;   LDA sprites, X
-;   STA $0200, X ; $0200 is sprite buffer
-;   INX
-;   CPX #$10
-;   BNE write_sprites
-; store X into a specific memory address to keep track of how far we are from the memory address of $0200 (sprite buffer)
-
-; STX $1f ; using $1f address to store how far we are from the memory address of $0200
-
-; background to draw star:
-
-; LDX #$00
-; LDA PPUSTATUS
-;   draw_steel_bricks:
-;   LDA #$20
-;   STA PPUADDR
-;   LDA #$40 ; Address of where in the nametable we want to draw
-;   CLC ; clear carry flag
-;    STX $00
-;    ADC $00 ; accumulator holds #$40 + X
-;   STA PPUADDR
-;   LDA #$06; $06 IS THE TILE NUMBER of the STEEL BRICK
-
-;   STA PPUDATA
-;   INX
-;   CPX #$40
-;   bne draw_steel_bricks
-; ; do a while loop that changes the palette that is chosen for the steel bricks
-; LDY #$00
-
-; set_steel_brick_palette:
-;   ; finally, attribute table -> this seems to not be working
-;   LDA PPUSTATUS
-;   LDA #$23
-;   STA PPUADDR
-;   LDA #$C0
-;     CLC
-;     STY $00; store Y register to $00
-;     ADC $00
- 
-;   STA PPUADDR ; storing #$C0 + Y to PPUADDR
-;   LDA #%01010000
-;   STA PPUDATA
-;   INY
-;   CPY #$08 ; 
-;   BNE set_steel_brick_palette
-
 
 
 ; display_tile subroutine
@@ -132,9 +78,6 @@ LDX #$21; high byte
 STX $02
 jsr display_tile
 
-
-
-
 LDX #$01 ; #$01 is the bush tile
 STX $00
 
@@ -153,38 +96,6 @@ jsr display_tile
   STA PPUADDR
   LDA #%00100000
   STA PPUDATA
-; dislay_sprite subroutine:
-; parameters:
-; how far we are from sprite buffer -> $1F (SHOULD ALREADY BE THERE)
-; Y-position of sprite -> $01
-; TILE NUMBER -> $02
-; ATTRIBUTES -> $03
-; X-COORD -> $04
-
-; Y-COORD, TILE NUMBER, ATTRIBUTES, X-COORD
-; .byte $70, $04, $00, $80 ; need 4 bytes to describe a single sprite
-; ldx #$90; Y-Coord
-; STX $01
-; LDX #$04 ; Tile Number
-; STX $02
-; LDX #$00 ; attributes
-; STX $03
-; LDX #$80 ; X-coord
-; STX $04
-
-; jsr display_sprite
-
-; ldx #$98; Y-Coord
-; STX $01
-; LDX #$14 ; Tile Number
-; STX $02
-; LDX #$00 ; attributes
-; STX $03
-; LDX #$80 ; X-coord
-; STX $04
-
-; jsr display_sprite
-; JMP vblankwait
 
 
 ; draw player subroutine:
@@ -240,35 +151,10 @@ forever:
 .endproc
 
 
-; dislay_sprite subroutine:
-; parameters:
-; how far we are from sprite buffer -> $1F (SHOULD ALREADY BE THERE)
-; Y-position of sprite -> $01
-; TILE NUMBER -> $02
-; ATTRIBUTES -> $03
-; X-COORD -> $04
-.proc display_sprite
-  LDX $1F ; X holds how far we are from sprite buffer (which is stored in $1f)
-  LDY #$00 ; Y is our index for the loop, we loop until Y is 4
-  write_sprite_loop:
-    LDA $01, Y ; accumulator holds the current sprite characteristic, which will be address $01 with an offset of Y
-    STA $0200, X 
-    INX
-    INY
-    CPY #$04
-    BNE write_sprite_loop
-  ; store what is in X back to $1f, to know how far we are from the sprite buffer
-  STX $1F
-  rts
-.endproc
-
-
 .proc draw_player
 ; save registers
 
 ; pull the coordinates of the players from the stack
-
-
   PHP
   PHA
   TXA
@@ -387,8 +273,6 @@ sprites:
 .byte $78, $08, $00, $88
 ; choose sprite palette number with the last 2 bits of the attribute 
 
-; low_byte_nametable_locations:
-; .byte $63, $64, $83, $84
 
 .segment "CHR"
 ; .res 8192 ; reservar 8,179 bytes of empty space 
