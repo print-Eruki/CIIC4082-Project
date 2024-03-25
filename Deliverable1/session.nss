@@ -31,7 +31,7 @@ MenuSaveRLE=0
 VarTileViewTagBuf=0
 VarBgPalCur=3
 VarPalActive=0
-VarTileActive=1
+VarTileActive=8
 VarBankActive=0
 VarPPUMask=0
 VarPPUMaskSet0=0
@@ -53,8 +53,8 @@ VarNameSelectionT=-1
 VarNameSelectionB=0
 VarNameCopyW=-1
 VarNameCopyH=-1
-VarCHRSelectionL=1
-VarCHRSelectionR=2
+VarCHRSelectionL=8
+VarCHRSelectionR=9
 VarCHRSelectionT=0
 VarCHRSelectionB=1
 VarCHRCopyW=1
@@ -67,7 +67,7 @@ VarCheckpoint_CHRBanks=4
 VarCheckpoint_CHRBanksUndo=4
 
 
-VarCHRSelected=000100[fe]
+VarCHRSelected=00[8]0100[f7]
 
 
 Palette=0f2d20160f0121310f0616260f0919290f1121310f1222320f1323330f1424340f1525350f1626360f1727370f1828380f1929390f1a2a3a0f1b2b3b0f1c2c3c
@@ -85,13 +85,13 @@ CHRCopy=f8d0f070080400[2]7870[3]080400[ff2]
 CHRUndo=00[13]1e372f3f[2]00[3]1e3f[4]1f0d0b0f102000[2]1f0f[3]102000[5]3c76fafe[2]00[3]3c7e[4]fcd8e878040200[2]7c78[3]040200[5]0e1f171f[2]00[3]0e1f[4]0f0507[2]081000[2]0f07[3]081000[5]387cf4fc[2]00[3]387c[4]f8d0f070080400[2]7870[3]080400[f82]6a7866f104103c6ab587ddafff3e0ab50c[2]ff[2]c0ff[2]0cfb[2]ff80bfff08fbff[8]00[2]3c[4]00[fc2]
 
 
-NameTable=00[3c0]
+NameTable=00[110]5100[18]010300[2]050700[1a]020400[2]060800[271]
 
 
 NameCopy=00[3c0]
 
 
-NameUndo=00[1d1]080700[20]0800[1cc]
+NameUndo=00[110]5100[18]010300[2]050700[1a]020400[2]0600[272]
 
 
 AttrTable=00[40]
