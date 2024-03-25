@@ -1,6 +1,10 @@
 .include "constants.inc"
 
 .include "header.inc"
+
+.segment "ZEROPAGE"
+current_player_x: .res 1
+current_player_y: .res 1
 .segment "CODE"
 .proc irq_handler
   RTI
@@ -156,29 +160,37 @@ jsr display_tile
 
 ; Y-COORD, TILE NUMBER, ATTRIBUTES, X-COORD
 ; .byte $70, $04, $00, $80 ; need 4 bytes to describe a single sprite
-ldx #$90; Y-Coord
-STX $01
-LDX #$04 ; Tile Number
-STX $02
-LDX #$00 ; attributes
-STX $03
-LDX #$80 ; X-coord
-STX $04
+; ldx #$90; Y-Coord
+; STX $01
+; LDX #$04 ; Tile Number
+; STX $02
+; LDX #$00 ; attributes
+; STX $03
+; LDX #$80 ; X-coord
+; STX $04
 
-jsr display_sprite
+; jsr display_sprite
 
-ldx #$98; Y-Coord
-STX $01
-LDX #$14 ; Tile Number
-STX $02
-LDX #$00 ; attributes
-STX $03
-LDX #$80 ; X-coord
-STX $04
+; ldx #$98; Y-Coord
+; STX $01
+; LDX #$14 ; Tile Number
+; STX $02
+; LDX #$00 ; attributes
+; STX $03
+; LDX #$80 ; X-coord
+; STX $04
 
-jsr display_sprite
-JMP vblankwait
+; jsr display_sprite
+; JMP vblankwait
 
+
+; draw player subroutine:
+; push to stack the Y coordinate and the X coordinate
+LDA #$70 ; Y-Coordinate
+sta current_player_y
+LDA #$50 ; X coordinate
+STA current_player_x 
+JSR draw_player
 
 vblankwait:       ; wait for another vblank before continuing
   BIT PPUSTATUS
@@ -232,6 +244,87 @@ forever:
   STX $1F
   rts
 .endproc
+
+
+.proc draw_player
+; save registers
+
+; pull the coordinates of the players from the stack
+
+
+  PHP
+  PHA
+  TXA
+  PHA
+  TYA
+  PHA
+
+  ; store tile numbers
+  ; write player ship tile numbers
+  ; tile numbers were changed to be able to draw 
+
+
+  LDA #$01 ; top left
+  STA $0201
+  LDA #$03 ; top right
+  STA $0205
+  LDA #$02 ; bottom left
+  STA $0209
+  LDA #$04 ; bottom right
+  STA $020d
+  ; store attributes
+; use palette 0
+  LDA #$00
+  STA $0202
+  STA $0206
+  STA $020a
+  STA $020e
+
+
+  ; store tile locations
+  ; top left tile:
+  LDA current_player_y
+  STA $0200
+  LDA current_player_x
+  STA $0203
+
+  ; top right tile (x + 8):
+  LDA current_player_y
+  STA $0204
+  LDA current_player_x
+  CLC
+  ADC #$08
+  STA $0207
+
+  ; bottom left tile (y + 8):
+  LDA current_player_y
+  CLC
+  ADC #$08
+  STA $0208
+  LDA current_player_x
+  STA $020b
+
+  ; bottom right tile (x + 8, y + 8)
+  LDA current_player_y
+  CLC
+  ADC #$08
+  STA $020c
+  LDA current_player_x
+  CLC
+  ADC #$08
+  STA $020f
+
+  ; restore registers and return
+   PLA
+  TAY
+  PLA
+  TAX
+  PLA
+  PLP
+  RTS
+.endproc
+
+
 .segment "VECTORS"
 .addr nmi_handler, reset_handler, irq_handler
 .segment "RODATA"
