@@ -5,6 +5,9 @@
 .segment "ZEROPAGE"
 current_player_x: .res 1
 current_player_y: .res 1
+sprite_offset: .res 1
+choose_sprite_orientation: .res 1
+.exportzp sprite_offset
 .segment "CODE"
 .proc irq_handler
   RTI
@@ -186,11 +189,25 @@ jsr display_tile
 
 ; draw player subroutine:
 ; push to stack the Y coordinate and the X coordinate
+LDA #$00
+STA sprite_offset ; set sprite off set to be zero before drawing any sprites
+LDA #$00
+STA choose_sprite_orientation
+
 LDA #$70 ; Y-Coordinate
 sta current_player_y
 LDA #$50 ; X coordinate
 STA current_player_x 
 JSR draw_player
+
+lda #$04
+sta choose_sprite_orientation ; with an offset of 4, it will display the butterfly with its wings slightly closed
+LDA #$70
+STA current_player_y
+LDA #$60
+STA current_player_x
+jsr draw_player
+
 
 vblankwait:       ; wait for another vblank before continuing
   BIT PPUSTATUS
@@ -259,61 +276,79 @@ forever:
   TYA
   PHA
 
+    LDX sprite_offset
+    LDY choose_sprite_orientation
   ; store tile numbers
   ; write player ship tile numbers
   ; tile numbers were changed to be able to draw 
 
+    ; Y register contains the index offset needed to display the sprite at a specific orientation/posture
+  TYA
+  CLC 
+  ADC #$01 ; top left
+  STA $0201, X
 
-  LDA #$01 ; top left
-  STA $0201
-  LDA #$03 ; top right
-  STA $0205
-  LDA #$02 ; bottom left
-  STA $0209
-  LDA #$04 ; bottom right
-  STA $020d
+  TYA
+  CLC 
+  ADC #$03 ; top right
+  STA $0205, X
+
+  TYA
+  CLC 
+  ADC #$02; bottom left
+  STA $0209, X
+
+  TYA
+  CLC 
+  ADC #$04; bottom right
+  STA $020d, X
   ; store attributes
 ; use palette 0
   LDA #$00
-  STA $0202
-  STA $0206
-  STA $020a
-  STA $020e
+  STA $0202, X
+  STA $0206, X
+  STA $020a, X
+  STA $020e, X
 
 
   ; store tile locations
   ; top left tile:
   LDA current_player_y
-  STA $0200
+  STA $0200, X
   LDA current_player_x
-  STA $0203
+  STA $0203, X
 
   ; top right tile (x + 8):
   LDA current_player_y
-  STA $0204
+  STA $0204, X
   LDA current_player_x
   CLC
   ADC #$08
-  STA $0207
+  STA $0207, X
 
   ; bottom left tile (y + 8):
   LDA current_player_y
   CLC
   ADC #$08
-  STA $0208
+  STA $0208, X
   LDA current_player_x
-  STA $020b
+  STA $020b, X
 
   ; bottom right tile (x + 8, y + 8)
   LDA current_player_y
   CLC
   ADC #$08
-  STA $020c
+  STA $020c, X
   LDA current_player_x
   CLC
   ADC #$08
-  STA $020f
+  STA $020f, X
 
+
+    LDA sprite_offset
+    CLC
+    ADC #$10
+    STA sprite_offset ; sprite_offset += 16 
   ; restore registers and return
    PLA
   TAY

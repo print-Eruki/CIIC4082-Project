@@ -1,5 +1,8 @@
 .include "constants.inc"
 
+.segment "ZEROPAGE"
+.importzp sprite_offset
+
 .segment "CODE"
 .import main
 .export reset_handler
@@ -32,5 +35,10 @@ clear_oam:
 vblankwait2:
   BIT $2002
   BPL vblankwait2
+
+; initialize zero-page values
+  LDA #$00
+  STA sprite_offset
+
   JMP main
 .endproc
