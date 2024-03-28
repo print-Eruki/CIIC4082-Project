@@ -202,6 +202,8 @@ forever:
   STA $020a, X
   STA $020e, X
 
+; check if it's up or down here
+; if its down, then branch to skip the draw up portion
 
   ; store tile locations
   ; top left tile:
@@ -236,7 +238,7 @@ forever:
   ADC #$08
   STA $020f, X
 
-
+; aqui lllega a dibujar hacia abajo
     LDA sprite_offset
     CLC
     ADC #$10 ;Cordero, incrementing by 16
