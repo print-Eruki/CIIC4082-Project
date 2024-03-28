@@ -1,7 +1,7 @@
 .include "constants.inc"
 
 .segment "ZEROPAGE"
-.importzp sprite_offset
+.importzp sprite_offset, choose_sprite_orientation, tick_count
 
 .segment "CODE"
 .import main
@@ -39,6 +39,8 @@ vblankwait2:
 ; initialize zero-page values
   LDA #$00
   STA sprite_offset
+  STA choose_sprite_orientation
+  STA tick_count
 
   JMP main
 .endproc

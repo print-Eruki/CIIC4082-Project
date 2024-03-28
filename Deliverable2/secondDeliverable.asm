@@ -7,7 +7,8 @@ current_player_x: .res 1
 current_player_y: .res 1
 sprite_offset: .res 1
 choose_sprite_orientation: .res 1
-.exportzp sprite_offset
+tick_count: .res 1
+.exportzp sprite_offset, choose_sprite_orientation, tick_count
 .segment "CODE"
 .proc irq_handler
   RTI
@@ -24,6 +25,8 @@ choose_sprite_orientation: .res 1
   LDA #$00
   STA PPUSCROLL ; $2005 IS PPU SCROLL, it takes two writes: X Scroll , Y Scroll
   STA PPUSCROLL
+  JSR update_tick_count ;Handle the update tick (resetting to zero or incrementing)
+  JSR update
   RTI
 .endproc
 
@@ -102,8 +105,8 @@ jsr display_tile
 ; push to stack the Y coordinate and the X coordinate
 LDA #$00
 STA sprite_offset ; set sprite off set to be zero before drawing any sprites
-LDA #$00
-STA choose_sprite_orientation
+; LDA #$00
+; STA choose_sprite_orientation
 
 LDA #$70 ; Y-Coordinate
 sta current_player_y
@@ -111,21 +114,21 @@ LDA #$50 ; X coordinate
 STA current_player_x 
 JSR draw_player
 
-lda #$04
-sta choose_sprite_orientation ; with an offset of 4, it will display the butterfly with its wings slightly closed
-LDA #$70
-STA current_player_y
-LDA #$60
-STA current_player_x
-jsr draw_player
+; lda #$04
+; sta choose_sprite_orientation ; with an offset of 4, it will display the butterfly with its wings slightly closed
+; LDA #$70
+; STA current_player_y
+; LDA #$60
+; STA current_player_x
+; jsr draw_player
 
-lda #$04
-sta choose_sprite_orientation ; with an offset of 4, it will display the butterfly with its wings slightly closed
-LDA #$70
-STA current_player_y
-LDA #$80
-STA current_player_x
-jsr draw_player
+; lda #$04
+; sta choose_sprite_orientation ; with an offset of 4, it will display the butterfly with its wings slightly closed
+; LDA #$70
+; STA current_player_y
+; LDA #$80
+; STA current_player_x
+; jsr draw_player
 vblankwait:       ; wait for another vblank before continuing
   BIT PPUSTATUS
   BPL vblankwait
@@ -156,6 +159,37 @@ forever:
   rts ; return from subroutine
 .endproc
 
+.proc update_tick_count
+  LDA tick_count       ; Load the updated tick_count into A for comparison
+  CLC                  ; Clear the carry flag
+  ADC #$1              ; Add one to the A register
+
+  CMP #$3C              ; Compare A (tick_count) with 0x3C -> 60
+  BEQ reset_tick       ; If equal, branch to resetCount label
+
+  CMP #$1E              ; Compare A again (tick_count) with 0x1E -> 30
+  BNE done              ; If not equal, we are done, skip to done label
+  
+  ; If CMP #30 was equal, fall through to here
+  STA tick_count
+  LDX #$04             ; Load A with 04 for chosing sprite orientation
+  STX choose_sprite_orientation    
+  JMP done             ; Jump to done to avoid falling through to resetCount
+
+reset_tick:
+  LDA #$00             ; Load A with 0
+  STA tick_count       ; Reset tick_count to 0              
+  STA choose_sprite_orientation    ; Reset sprite offset to 00 (first animation)
+
+done:
+  STA tick_count
+  RTS
+.endproc
+
+.proc update
+  JSR draw_player
+  RTS
+.endproc
 
 .proc draw_player
 ; save registers
