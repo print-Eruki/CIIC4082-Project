@@ -97,6 +97,43 @@ jsr display_tile
   LDA #%00100000
   STA PPUDATA
 
+LDY #$00
+display_phase2_background_tiles:
+    ; displays background tiles from $20e9 - $20F0
+
+    LDX phase2_background_tiles, Y 
+    STX $00
+
+    TYA ; TRANSFER Y (holds index) to accumulator to add with base low byte address 
+    CLC 
+    ADC #$e9
+    TAX ; transfer result stored in accumulator to X 
+    ; accumulator has: #$e9 + Y
+    STX $01
+
+    LDX #$20; high byte
+    STX $02
+    jsr display_tile
+    ; BRANCH BACK
+    INY
+    CPY #$08
+    bne display_phase2_background_tiles
+
+LDX #$00
+LDA PPUSTATUS
+; will set the attribute table addresses 23CA - 23CC (top left and top right only) to use palette 4
+set_background_row_palette_4:
+  LDA #$23 ; high byte of attribute table
+  STA PPUADDR
+  TXA
+  CLC 
+  ADC #$CA ; low byte of attribute table (D2 + X)
+  STA PPUADDR
+  LDA #%11110000 ; set BOTTOM left and BOTTOM right to use palette 4
+  STA PPUDATA
+  INX
+  CPX #$03
+  BNE set_background_row_palette_4 ; if x != 3, then loop again
 
 ; draw player subroutine:
 ; push to stack the Y coordinate and the X coordinate
@@ -119,13 +156,13 @@ LDA #$60
 STA current_player_x
 jsr draw_player
 
-lda #$04
-sta choose_sprite_orientation ; with an offset of 4, it will display the butterfly with its wings slightly closed
-LDA #$70
-STA current_player_y
-LDA #$80
-STA current_player_x
-jsr draw_player
+; lda #$04
+; sta choose_sprite_orientation ; with an offset of 4, it will display the butterfly with its wings slightly closed
+; LDA #$70
+; STA current_player_y
+; LDA #$80
+; STA current_player_x
+; jsr draw_player
 vblankwait:       ; wait for another vblank before continuing
   BIT PPUSTATUS
   BPL vblankwait
@@ -263,7 +300,7 @@ palettes:
 .byte $0f, $16, $21, $30
 .byte $0f, $10, $18, $20
 .byte $0f, $19, $2A, $09
-.byte $0f, $16, $09, $20
+.byte $0f, $01, $21, $31 ; palette 3 is to be used for phase 2 of the game
 
 ; Sprite Palettes
 .byte $0f, $29, $19, $09 ; we already loaded the first color of this palette above
@@ -279,7 +316,8 @@ sprites:
 .byte $78, $08, $00, $88
 ; choose sprite palette number with the last 2 bits of the attribute 
 
-
+phase2_background_tiles:
+.byte $07, $07, $04, $06, $04, $04, $04, $05
 .segment "CHR"
 ; .res 8192 ; reservar 8,179 bytes of empty space 
 .incbin "sprite_and_background.chr"
