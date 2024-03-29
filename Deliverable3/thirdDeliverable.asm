@@ -8,8 +8,13 @@ current_player_y: .res 1
 sprite_offset: .res 1
 choose_sprite_orientation: .res 1
 tick_count: .res 1
+player_1_x: .res 1
+player_1_y: .res 1
+controller_read_output: .res 1
 wings_flap_state: .res 1 ; wings_flap_state: 0 -> wings are open, wings_flap_state: 1 -> wings are closed
-.exportzp sprite_offset, choose_sprite_orientation, tick_count, wings_flap_state
+player_direction: .res 1 ; direction: UP -> 0 | RIGHT -> 16 (#$10) | LEFT -> 32 (#$20) | DOWN -> 48 (#$30)
+.exportzp sprite_offset, choose_sprite_orientation, player_1_x, player_1_y, tick_count, wings_flap_state, player_direction
+
 .segment "CODE"
 .proc irq_handler
   RTI
@@ -26,8 +31,14 @@ wings_flap_state: .res 1 ; wings_flap_state: 0 -> wings are open, wings_flap_sta
   LDA #$00
   STA PPUSCROLL ; $2005 IS PPU SCROLL, it takes two writes: X Scroll , Y Scroll
   STA PPUSCROLL
+
   JSR update_tick_count ;Handle the update tick (resetting to zero or incrementing)
-  JSR update
+
+  JSR read_controller ; reads the controller and changes the player's location accordingly
+
+  JSR update ; draws the player on the screen
+
+
   RTI
 .endproc
 
@@ -41,10 +52,6 @@ wings_flap_state: .res 1 ; wings_flap_state: 0 -> wings are open, wings_flap_sta
   LDX #$00
   STX PPUADDR
 
-  ;initialize wings_flap_state to zero
-  LDA #$00
-  STA wings_flap_state
-
   load_palettes:
     LDA palettes, X
     STA PPUDATA
@@ -57,6 +64,54 @@ wings_flap_state: .res 1 ; wings_flap_state: 0 -> wings are open, wings_flap_sta
 ; tile_index -> $00
 ; low byte -> $01
 ; high byte -> $02
+LDX #$03 ; #$03 is the steel tile
+STX $00
+
+LDX #$69 ; low byte
+STX $01
+
+LDX #$21; high byte
+STX $02
+jsr display_tile
+
+; set attribute table for steel tile
+  LDA PPUSTATUS
+  LDA #$23
+  STA PPUADDR
+  LDA #$D2
+  STA PPUADDR
+  LDA #%00010000
+  STA PPUDATA
+
+LDX #$02 ; #$02 is the brick tile
+STX $00
+
+LDX #$6C ; low byte
+STX $01
+
+LDX #$21; high byte
+STX $02
+jsr display_tile
+
+LDX #$01 ; #$01 is the bush tile
+STX $00
+
+LDX #$70 ; low byte
+STX $01
+
+LDX #$21; high byte
+STX $02
+jsr display_tile
+
+; set attribute table for bush tile
+  LDA PPUSTATUS
+  LDA #$23
+  STA PPUADDR
+  LDA #$D4
+  STA PPUADDR
+  LDA #%00100000
+  STA PPUDATA
+
 
 
 vblankwait:       ; wait for another vblank before continuing
@@ -94,10 +149,10 @@ forever:
   CLC                  ; Clear the carry flag
   ADC #$1              ; Add one to the A register
 
-  CMP #$3C              ; Compare A (tick_count) with 0x3C -> 60
+  CMP #$28               ; Compare A (tick_count) with 0x28 -> 40
   BEQ reset_tick       ; If equal, branch to resetCount label
 
-  CMP #$1E              ; Compare A again (tick_count) with 0x1E -> 30
+  CMP #$14            ; Compare A again (tick_count) with 0x14 -> 20
   BNE done              ; If not equal, we are done, skip to done label
   
   ; If CMP #30 was equal, fall through to here
@@ -118,47 +173,112 @@ done:
 .endproc
 
 .proc update
-  ;UP 
-  LDA #$70 ; Y-Coordinate
-  sta current_player_y
-  LDA #$70 ; X coordinate
-  STA current_player_x 
+; update method is in charge of drawing the player at that player's location.
+  ; draw player subroutine:
+  ; push to stack the Y coordinate and the X coordinate
   LDA #$00
-  STA choose_sprite_orientation
-  JSR draw_player
+  STA sprite_offset ; set sprite off set to be zero before drawing any sprites
 
-  ; Right
-  LDA #$80 ; Y-Coordinate
+  LDA player_direction ; direction: UP -> 0 | RIGHT -> 16 (#$10) | LEFT -> 32 (#$20) | DOWN -> 48 (#$30)
+  STA choose_sprite_orientation 
+
+  LDA player_1_y; Y-Coordinate
   sta current_player_y
-  LDA #$80 ; X coordinate
+  LDA player_1_x; X coordinate
   STA current_player_x 
-  LDA #$10
-  STA choose_sprite_orientation
   JSR draw_player
-
-  ;Left
-  LDA #$80 ; Y-Coordinate
-  sta current_player_y
-  LDA #$60 ; X coordinate
-  STA current_player_x 
-  LDA #$20
-  STA choose_sprite_orientation
-  JSR draw_player
-
-  
-
-  ;Down
-  LDA #$90 ; Y-Coordinate
-  STA current_player_y
-  LDA #$70 ; X coordinate
-  STA current_player_x 
-  LDA #$30
-  STA choose_sprite_orientation
-  JSR draw_player
-
   RTS
 .endproc
 
+.proc read_controller
+  LDA #1
+  STA controller_read_output ; store it with 1 so that when that 1 gets passed to the carry flag after 8 left shifts, we can break out of the loop
+
+LatchController:
+  lda #$01
+  STA $4016
+  LDA #$00
+  STA $4016  
+
+; after the following loop: the controller_read_output var will contain the status of all of the buttons (if they were pressed or not) 
+read_controller_loop:
+  LDA $4016
+  lsr A ; logical shift right to place first bit of accumulator to the carry flag
+  ROL controller_read_output ; rotate left, place left most bit in controller_read_output to carry
+  ;  and place what was in carry flag to the right most bit ofcontroller_read_output
+
+  bcc read_controller_loop
+
+;  ; direction: UP -> 0 | RIGHT -> 16 (#$10) | LEFT -> 32 (#$20) | DOWN -> 48 (#$30)
+
+; Reads A and the right arrow key to turn right
+ReadA: ; en el original NES controller, la A está a la derecha así que la "S" en el teclado es la A
+  ; LDA $4016
+  LDA controller_read_output
+  AND #%10000001 ; BIT MASK to look if accumulator holds a value different than 0 after performing the AND
+  ; here we are checking to see if the A was pressed
+  BEQ ReadADone
+  
+  ; if A is pressed, move sprite to the right
+  LDA player_1_x
+  CLC
+  ADC #$01 ; x = x + 1
+  STA player_1_x
+  LDA #$10
+  STA player_direction
+
+  ReadADone:
+
+; reads B and the left arrow key to turn left
+ReadB: ; la "A" en el teclado de la computadora es la B en el NES
+  LDA controller_read_output
+  AND #%01000010 ; BIT MASK to look if accumulator holds a value different than 0
+  BEQ ReadBDone
+
+  ; if A is pressed, move sprite to the right
+  LDA player_1_x
+  SEC ; make sure the carry flag is set for subtraction
+  SBC #$01 ; X = X - 1
+  sta player_1_x
+  LDA #$20
+  STA player_direction
+
+  ReadBDone:
+
+ReadUp:
+  LDA controller_read_output
+  AND #%00001000
+  BEQ ReadUpDone
+
+  ; if Up is pressed, move sprite up
+  ; to move UP, we subtract from Y coordinate
+  LDA player_1_y
+  SEC 
+  SBC #$01 ; Y = Y - 1
+  STA player_1_y
+  LDA #$00 ; UP is 0
+  STA player_direction
+
+  ReadUpDone:
+  
+ReadDown:
+  LDA controller_read_output
+  AND #%00000100
+  BEQ ReadDownDone
+
+  ; if Up is pressed, move sprite up
+  ; to move UP, we subtract from Y coordinate
+  LDA player_1_y
+  CLC 
+  ADC #$01 ; Y = Y + 1
+  STA player_1_y
+  LDA #$30 ; DOWN is $30 (48 in decimal)
+  STA player_direction
+
+ReadDownDone:
+
+RTS
+.endproc
 .proc draw_player
 ; save registers
 
@@ -183,8 +303,8 @@ done:
 
   continue:             ; Continue drawing the sprite
 
-  LDX sprite_offset
-  LDY choose_sprite_orientation
+    LDX sprite_offset
+    LDY choose_sprite_orientation
   ; store tile numbers
   ; write player ship tile numbers
   ; tile numbers were changed to be able to draw 
@@ -217,8 +337,6 @@ done:
   STA $020a, X
   STA $020e, X
 
-; check if it's up or down here
-; if its down, then branch to skip the draw up portion
 
   ; store tile locations
   ; top left tile:
@@ -253,7 +371,7 @@ done:
   ADC #$08
   STA $020f, X
 
-; aqui lllega a dibujar hacia abajo
+
     LDA sprite_offset
     CLC
     ADC #$10 ;Cordero, incrementing by 16
