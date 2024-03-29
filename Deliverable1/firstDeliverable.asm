@@ -137,10 +137,14 @@ set_background_row_palette_4:
 
 ; draw player subroutine:
 ; push to stack the Y coordinate and the X coordinate
+
+
 LDA #$00
 STA sprite_offset ; set sprite off set to be zero before drawing any sprites
 LDA #$00
 STA choose_sprite_orientation
+
+; butterfly UP, wings opened
 
 LDA #$70 ; Y-Coordinate
 sta current_player_y
@@ -148,6 +152,35 @@ LDA #$50 ; X coordinate
 STA current_player_x 
 JSR draw_player
 
+; butterfly RIGHT, wings opened
+LDA #$10
+STA choose_sprite_orientation
+LDA #$80 ; Y-Coordinate
+sta current_player_y
+LDA #$50 ; X coordinate
+STA current_player_x 
+JSR draw_player
+
+; butterfly LEFT, wings opened
+LDA #$20
+STA choose_sprite_orientation
+LDA #$90 ; Y-Coordinate
+sta current_player_y
+LDA #$50 ; X coordinate
+STA current_player_x 
+JSR draw_player
+
+; butterfly DOWN, wings opened
+LDA #$30
+STA choose_sprite_orientation
+LDA #$A0 ; Y-Coordinate
+sta current_player_y
+LDA #$50 ; X coordinate
+STA current_player_x 
+JSR draw_player
+
+
+; butterfly UP, wings partially closed
 lda #$04
 sta choose_sprite_orientation ; with an offset of 4, it will display the butterfly with its wings slightly closed
 LDA #$70
@@ -156,6 +189,33 @@ LDA #$60
 STA current_player_x
 jsr draw_player
 
+; butterfly RIGHT, wings partially closed
+lda #$14
+sta choose_sprite_orientation ; with an offset of 4, it will display the butterfly with its wings slightly closed
+LDA #$80
+STA current_player_y
+LDA #$60
+STA current_player_x
+jsr draw_player
+
+; butterfly LEFT, wings partially closed
+lda #$24
+sta choose_sprite_orientation ; with an offset of 4, it will display the butterfly with its wings slightly closed
+LDA #$90
+STA current_player_y
+LDA #$60
+STA current_player_x
+jsr draw_player
+
+
+; butterfly DOWN, wings partially closed
+lda #$34
+sta choose_sprite_orientation ; with an offset of 4, it will display the butterfly with its wings slightly closed
+LDA #$A0
+STA current_player_y
+LDA #$60
+STA current_player_x
+jsr draw_player
 ; lda #$04
 ; sta choose_sprite_orientation ; with an offset of 4, it will display the butterfly with its wings slightly closed
 ; LDA #$70
