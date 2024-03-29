@@ -1,7 +1,7 @@
 .include "constants.inc"
 
 .segment "ZEROPAGE"
-.importzp sprite_offset, player_1_x, player_1_y, tick_count
+.importzp sprite_offset, player_1_x, player_1_y, tick_count, choose_sprite_orientation, wings_flap_state, player_direction
 
 .segment "CODE"
 .import main
@@ -40,6 +40,9 @@ vblankwait2:
   LDA #$00
   STA sprite_offset
   STA tick_count
+  STA player_direction
+  STA wings_flap_state
+  STA choose_sprite_orientation
 
 ; set x, y coords for player_1
   LDA #$50

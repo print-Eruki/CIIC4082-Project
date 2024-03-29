@@ -11,7 +11,9 @@ tick_count: .res 1
 player_1_x: .res 1
 player_1_y: .res 1
 controller_read_output: .res 1
-.exportzp sprite_offset, player_1_x, player_1_y, tick_count
+wings_flap_state: .res 1 ; wings_flap_state: 0 -> wings are open, wings_flap_state: 1 -> wings are closed
+player_direction: .res 1 ; direction: UP -> 0 | RIGHT -> 16 (#$10) | LEFT -> 32 (#$20) | DOWN -> 48 (#$30)
+.exportzp sprite_offset, choose_sprite_orientation, player_1_x, player_1_y, tick_count, wings_flap_state, player_direction
 
 .segment "CODE"
 .proc irq_handler
@@ -145,24 +147,25 @@ forever:
 .proc update_tick_count
   LDA tick_count       ; Load the updated tick_count into A for comparison
   CLC                  ; Clear the carry flag
-  ADC #$01              ; Add one to the A register
+  ADC #$1              ; Add one to the A register
 
-  CMP #$3F              ; Compare A (tick_count) with 0x3C -> 60
+  CMP #$28               ; Compare A (tick_count) with 0x28 -> 40
   BEQ reset_tick       ; If equal, branch to resetCount label
 
-  CMP #$1E              ; Compare A again (tick_count) with 0x1E -> 30
+  CMP #$14            ; Compare A again (tick_count) with 0x14 -> 20
   BNE done              ; If not equal, we are done, skip to done label
   
   ; If CMP #30 was equal, fall through to here
   STA tick_count
-  LDA #$04             ; Load A with 04 for chosing sprite orientation
-  STA choose_sprite_orientation    
+  LDA #$01
+  STA wings_flap_state
   RTS            
 
 reset_tick:
   LDA #$00             ; Load A with 0
-  STA tick_count       ; Reset tick_count to 0              
-  STA choose_sprite_orientation    ; Reset sprite offset to 00 (first animation)
+  STA tick_count       ; Reset tick_count to 0 
+  STA wings_flap_state    
+  RTS
 
 done:
   STA tick_count
@@ -176,6 +179,8 @@ done:
   LDA #$00
   STA sprite_offset ; set sprite off set to be zero before drawing any sprites
 
+  LDA player_direction ; direction: UP -> 0 | RIGHT -> 16 (#$10) | LEFT -> 32 (#$20) | DOWN -> 48 (#$30)
+  STA choose_sprite_orientation 
 
   LDA player_1_y; Y-Coordinate
   sta current_player_y
@@ -204,6 +209,8 @@ read_controller_loop:
 
   bcc read_controller_loop
 
+;  ; direction: UP -> 0 | RIGHT -> 16 (#$10) | LEFT -> 32 (#$20) | DOWN -> 48 (#$30)
+
 ; Reads A and the right arrow key to turn right
 ReadA: ; en el original NES controller, la A está a la derecha así que la "S" en el teclado es la A
   ; LDA $4016
@@ -211,16 +218,18 @@ ReadA: ; en el original NES controller, la A está a la derecha así que la "S" 
   AND #%10000001 ; BIT MASK to look if accumulator holds a value different than 0 after performing the AND
   ; here we are checking to see if the A was pressed
   BEQ ReadADone
-
+  
   ; if A is pressed, move sprite to the right
   LDA player_1_x
   CLC
   ADC #$01 ; x = x + 1
   STA player_1_x
+  LDA #$10
+  STA player_direction
 
   ReadADone:
 
-; reads B and the left arrow key 
+; reads B and the left arrow key to turn left
 ReadB: ; la "A" en el teclado de la computadora es la B en el NES
   LDA controller_read_output
   AND #%01000010 ; BIT MASK to look if accumulator holds a value different than 0
@@ -231,7 +240,9 @@ ReadB: ; la "A" en el teclado de la computadora es la B en el NES
   SEC ; make sure the carry flag is set for subtraction
   SBC #$01 ; X = X - 1
   sta player_1_x
- 
+  LDA #$20
+  STA player_direction
+
   ReadBDone:
 
 ReadUp:
@@ -245,6 +256,8 @@ ReadUp:
   SEC 
   SBC #$01 ; Y = Y - 1
   STA player_1_y
+  LDA #$00 ; UP is 0
+  STA player_direction
 
   ReadUpDone:
   
@@ -259,6 +272,8 @@ ReadDown:
   CLC 
   ADC #$01 ; Y = Y + 1
   STA player_1_y
+  LDA #$30 ; DOWN is $30 (48 in decimal)
+  STA player_direction
 
 ReadDownDone:
 
@@ -274,6 +289,19 @@ RTS
   PHA
   TYA
   PHA
+
+  LDA wings_flap_state
+  CMP #$00              ; Compare if wings_flap_state is 0 to skip close_wings
+  BEQ continue          ;
+
+  close_wings:          ; If wings_flap_state is one then this label is executed
+
+    LDA choose_sprite_orientation
+    CLC
+    ADC #$04
+    STA choose_sprite_orientation
+
+  continue:             ; Continue drawing the sprite
 
     LDX sprite_offset
     LDY choose_sprite_orientation
