@@ -8,7 +8,8 @@ current_player_y: .res 1
 sprite_offset: .res 1
 choose_sprite_orientation: .res 1
 tick_count: .res 1
-.exportzp sprite_offset, choose_sprite_orientation, tick_count
+wings_flap_state: .res 1 ; wings_flap_state: 0 -> wings are open, wings_flap_state: 1 -> wings are closed
+.exportzp sprite_offset, choose_sprite_orientation, tick_count, wings_flap_state
 .segment "CODE"
 .proc irq_handler
   RTI
@@ -40,6 +41,10 @@ tick_count: .res 1
   LDX #$00
   STX PPUADDR
 
+  ;initialize wings_flap_state to zero
+  LDA #$00
+  STA wings_flap_state
+
   load_palettes:
     LDA palettes, X
     STA PPUDATA
@@ -52,83 +57,8 @@ tick_count: .res 1
 ; tile_index -> $00
 ; low byte -> $01
 ; high byte -> $02
-LDX #$03 ; #$03 is the steel tile
-STX $00
-
-LDX #$69 ; low byte
-STX $01
-
-LDX #$21; high byte
-STX $02
-jsr display_tile
-
-; set attribute table for steel tile
-  LDA PPUSTATUS
-  LDA #$23
-  STA PPUADDR
-  LDA #$D2
-  STA PPUADDR
-  LDA #%00010000
-  STA PPUDATA
-
-LDX #$02 ; #$02 is the brick tile
-STX $00
-
-LDX #$6C ; low byte
-STX $01
-
-LDX #$21; high byte
-STX $02
-jsr display_tile
-
-LDX #$01 ; #$01 is the bush tile
-STX $00
-
-LDX #$70 ; low byte
-STX $01
-
-LDX #$21; high byte
-STX $02
-jsr display_tile
-
-; set attribute table for bush tile
-  LDA PPUSTATUS
-  LDA #$23
-  STA PPUADDR
-  LDA #$D4
-  STA PPUADDR
-  LDA #%00100000
-  STA PPUDATA
 
 
-; draw player subroutine:
-; push to stack the Y coordinate and the X coordinate
-; LDA #$00
-; STA sprite_offset ; set sprite off set to be zero before drawing any sprites
-; LDA #$00
-; STA choose_sprite_orientation
-
-LDA #$70 ; Y-Coordinate
-sta current_player_y
-LDA #$50 ; X coordinate
-STA current_player_x 
-; JSR draw_player
-
-; lda #$04
-; sta choose_sprite_orientation ; with an offset of 4, it will display the butterfly with its wings slightly closed
-; LDA #$70
-; STA current_player_y
-; LDA #$60
-; STA current_player_x
-; jsr draw_player
-
-; lda #$04
-; sta choose_sprite_orientation ; with an offset of 4, it will display the butterfly with its wings slightly closed
-; LDA #$70
-; STA current_player_y
-; LDA #$80
-; STA current_player_x
-; jsr draw_player
 vblankwait:       ; wait for another vblank before continuing
   BIT PPUSTATUS
   BPL vblankwait
@@ -164,7 +94,7 @@ forever:
   CLC                  ; Clear the carry flag
   ADC #$1              ; Add one to the A register
 
-  CMP #$3F              ; Compare A (tick_count) with 0x3C -> 60
+  CMP #$3C              ; Compare A (tick_count) with 0x3C -> 60
   BEQ reset_tick       ; If equal, branch to resetCount label
 
   CMP #$1E              ; Compare A again (tick_count) with 0x1E -> 30
@@ -172,14 +102,15 @@ forever:
   
   ; If CMP #30 was equal, fall through to here
   STA tick_count
-  LDA #$10             ; Load A with 04 for chosing sprite orientation
-  STA choose_sprite_orientation    
+  LDA #$01
+  STA wings_flap_state
   RTS            
 
 reset_tick:
   LDA #$00             ; Load A with 0
-  STA tick_count       ; Reset tick_count to 0              
-  STA choose_sprite_orientation    ; Reset sprite offset to 00 (first animation)
+  STA tick_count       ; Reset tick_count to 0 
+  STA wings_flap_state    
+  RTS
 
 done:
   STA tick_count
@@ -187,28 +118,42 @@ done:
 .endproc
 
 .proc update
+  ;UP 
   LDA #$70 ; Y-Coordinate
   sta current_player_y
-  LDA #$50 ; X coordinate
+  LDA #$70 ; X coordinate
   STA current_player_x 
+  LDA #$00
+  STA choose_sprite_orientation
   JSR draw_player
 
+  ; Right
   LDA #$80 ; Y-Coordinate
   sta current_player_y
-  LDA #$40 ; X coordinate
+  LDA #$80 ; X coordinate
   STA current_player_x 
+  LDA #$10
+  STA choose_sprite_orientation
   JSR draw_player
 
+  ;Left
   LDA #$80 ; Y-Coordinate
   sta current_player_y
   LDA #$60 ; X coordinate
   STA current_player_x 
+  LDA #$20
+  STA choose_sprite_orientation
   JSR draw_player
 
+  
+
+  ;Down
   LDA #$90 ; Y-Coordinate
-  sta current_player_y
-  LDA #$50 ; X coordinate
+  STA current_player_y
+  LDA #$70 ; X coordinate
   STA current_player_x 
+  LDA #$30
+  STA choose_sprite_orientation
   JSR draw_player
 
   RTS
@@ -225,8 +170,21 @@ done:
   TYA
   PHA
 
-    LDX sprite_offset
-    LDY choose_sprite_orientation
+  LDA wings_flap_state
+  CMP #$00              ; Compare if wings_flap_state is 0 to skip close_wings
+  BEQ continue          ;
+
+  close_wings:          ; If wings_flap_state is one then this label is executed
+
+    LDA choose_sprite_orientation
+    CLC
+    ADC #$04
+    STA choose_sprite_orientation
+
+  continue:             ; Continue drawing the sprite
+
+  LDX sprite_offset
+  LDY choose_sprite_orientation
   ; store tile numbers
   ; write player ship tile numbers
   ; tile numbers were changed to be able to draw 
