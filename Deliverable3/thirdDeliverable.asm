@@ -7,10 +7,11 @@ current_player_x: .res 1
 current_player_y: .res 1
 sprite_offset: .res 1
 choose_sprite_orientation: .res 1
+tick_count: .res 1
 player_1_x: .res 1
 player_1_y: .res 1
 controller_read_output: .res 1
-.exportzp sprite_offset, player_1_x, player_1_y
+.exportzp sprite_offset, player_1_x, player_1_y, tick_count
 
 .segment "CODE"
 .proc irq_handler
@@ -29,111 +30,13 @@ controller_read_output: .res 1
   STA PPUSCROLL ; $2005 IS PPU SCROLL, it takes two writes: X Scroll , Y Scroll
   STA PPUSCROLL
 
-  LDA #1
-  STA controller_read_output ; store it with 1 so that when that 1 gets passed to the carry flag after 8 left shifts, we can break out of the loop
+  JSR update_tick_count ;Handle the update tick (resetting to zero or incrementing)
 
-LatchController:
-  lda #$01
-  STA $4016
-  LDA #$00
-  STA $4016  
+  JSR read_controller ; reads the controller and changes the player's location accordingly
 
-; after the following loop: the controller_read_output var will contain the status of all of the buttons (if they were pressed or not) 
-read_controller_loop:
-  LDA $4016
-  lsr A ; logical shift right to place first bit of accumulator to the carry flag
-  ROL controller_read_output ; rotate left, place left most bit in controller_read_output to carry
-  ;  and place what was in carry flag to the right most bit ofcontroller_read_output
-
-  bcc read_controller_loop
-
-; Reads A and the right arrow key to turn right
-ReadA: ; en el original NES controller, la A está a la derecha así que la "S" en el teclado es la A
-  ; LDA $4016
-  LDA controller_read_output
-  AND #%10000001 ; BIT MASK to look if accumulator holds a value different than 0 after performing the AND
-  ; here we are checking to see if the A was pressed
-  BEQ ReadADone
-
-  ; if A is pressed, move sprite to the right
-  LDA player_1_x
-  CLC
-  ADC #$01 ; x = x + 1
-  STA player_1_x
-
-  ReadADone:
-
-; reads B and the left arrow key 
-ReadB: ; la "A" en el teclado de la computadora es la B en el NES
-  LDA controller_read_output
-  AND #%01000010 ; BIT MASK to look if accumulator holds a value different than 0
-  BEQ ReadBDone
-
-  ; if A is pressed, move sprite to the right
-  LDA player_1_x
-  SEC ; make sure the carry flag is set for subtraction
-  SBC #$01 ; X = X - 1
-  sta player_1_x
- 
-  ReadBDone:
-
-ReadUp:
-  LDA controller_read_output
-  AND #%00001000
-  BEQ ReadUpDone
-
-  ; if Up is pressed, move sprite up
-  ; to move UP, we subtract from Y coordinate
-  LDA player_1_y
-  SEC 
-  SBC #$01 ; Y = Y - 1
-  STA player_1_y
-
-  ReadUpDone:
-  
-ReadDown:
-  LDA controller_read_output
-  AND #%00000100
-  BEQ ReadDownDone
-
-  ; if Up is pressed, move sprite up
-  ; to move UP, we subtract from Y coordinate
-  LDA player_1_y
-  CLC 
-  ADC #$01 ; Y = Y + 1
-  STA player_1_y
-
-ReadDownDone:
+  JSR update ; draws the player on the screen
 
 
-  ; draw player subroutine:
-  ; push to stack the Y coordinate and the X coordinate
-  LDA #$00
-  STA sprite_offset ; set sprite off set to be zero before drawing any sprites
-  LDA #$00
-  STA choose_sprite_orientation
-
-  LDA player_1_y; Y-Coordinate
-  sta current_player_y
-  LDA player_1_x; X coordinate
-  STA current_player_x 
-  JSR draw_player
-
-  ; lda #$04
-  ; sta choose_sprite_orientation ; with an offset of 4, it will display the butterfly with its wings slightly closed
-  ; LDA #$70
-  ; STA current_player_y
-  ; LDA #$60
-  ; STA current_player_x
-  ; jsr draw_player
-
-  ; lda #$04
-  ; sta choose_sprite_orientation ; with an offset of 4, it will display the butterfly with its wings slightly closed
-  ; LDA #$70
-  ; STA current_player_y
-  ; LDA #$80
-  ; STA current_player_x
-  ; jsr draw_player
   RTI
 .endproc
 
@@ -239,7 +142,128 @@ forever:
   rts ; return from subroutine
 .endproc
 
+.proc update_tick_count
+  LDA tick_count       ; Load the updated tick_count into A for comparison
+  CLC                  ; Clear the carry flag
+  ADC #$01              ; Add one to the A register
 
+  CMP #$3F              ; Compare A (tick_count) with 0x3C -> 60
+  BEQ reset_tick       ; If equal, branch to resetCount label
+
+  CMP #$1E              ; Compare A again (tick_count) with 0x1E -> 30
+  BNE done              ; If not equal, we are done, skip to done label
+  
+  ; If CMP #30 was equal, fall through to here
+  STA tick_count
+  LDA #$04             ; Load A with 04 for chosing sprite orientation
+  STA choose_sprite_orientation    
+  RTS            
+
+reset_tick:
+  LDA #$00             ; Load A with 0
+  STA tick_count       ; Reset tick_count to 0              
+  STA choose_sprite_orientation    ; Reset sprite offset to 00 (first animation)
+
+done:
+  STA tick_count
+  RTS
+.endproc
+
+.proc update
+; update method is in charge of drawing the player at that player's location.
+  ; draw player subroutine:
+  ; push to stack the Y coordinate and the X coordinate
+  LDA #$00
+  STA sprite_offset ; set sprite off set to be zero before drawing any sprites
+
+
+  LDA player_1_y; Y-Coordinate
+  sta current_player_y
+  LDA player_1_x; X coordinate
+  STA current_player_x 
+  JSR draw_player
+  RTS
+.endproc
+
+.proc read_controller
+  LDA #1
+  STA controller_read_output ; store it with 1 so that when that 1 gets passed to the carry flag after 8 left shifts, we can break out of the loop
+
+LatchController:
+  lda #$01
+  STA $4016
+  LDA #$00
+  STA $4016  
+
+; after the following loop: the controller_read_output var will contain the status of all of the buttons (if they were pressed or not) 
+read_controller_loop:
+  LDA $4016
+  lsr A ; logical shift right to place first bit of accumulator to the carry flag
+  ROL controller_read_output ; rotate left, place left most bit in controller_read_output to carry
+  ;  and place what was in carry flag to the right most bit ofcontroller_read_output
+
+  bcc read_controller_loop
+
+; Reads A and the right arrow key to turn right
+ReadA: ; en el original NES controller, la A está a la derecha así que la "S" en el teclado es la A
+  ; LDA $4016
+  LDA controller_read_output
+  AND #%10000001 ; BIT MASK to look if accumulator holds a value different than 0 after performing the AND
+  ; here we are checking to see if the A was pressed
+  BEQ ReadADone
+
+  ; if A is pressed, move sprite to the right
+  LDA player_1_x
+  CLC
+  ADC #$01 ; x = x + 1
+  STA player_1_x
+
+  ReadADone:
+
+; reads B and the left arrow key 
+ReadB: ; la "A" en el teclado de la computadora es la B en el NES
+  LDA controller_read_output
+  AND #%01000010 ; BIT MASK to look if accumulator holds a value different than 0
+  BEQ ReadBDone
+
+  ; if A is pressed, move sprite to the right
+  LDA player_1_x
+  SEC ; make sure the carry flag is set for subtraction
+  SBC #$01 ; X = X - 1
+  sta player_1_x
+ 
+  ReadBDone:
+
+ReadUp:
+  LDA controller_read_output
+  AND #%00001000
+  BEQ ReadUpDone
+
+  ; if Up is pressed, move sprite up
+  ; to move UP, we subtract from Y coordinate
+  LDA player_1_y
+  SEC 
+  SBC #$01 ; Y = Y - 1
+  STA player_1_y
+
+  ReadUpDone:
+  
+ReadDown:
+  LDA controller_read_output
+  AND #%00000100
+  BEQ ReadDownDone
+
+  ; if Up is pressed, move sprite up
+  ; to move UP, we subtract from Y coordinate
+  LDA player_1_y
+  CLC 
+  ADC #$01 ; Y = Y + 1
+  STA player_1_y
+
+ReadDownDone:
+
+RTS
+.endproc
 .proc draw_player
 ; save registers
 
