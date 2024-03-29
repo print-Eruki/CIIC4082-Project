@@ -103,8 +103,8 @@ jsr display_tile
 
 ; draw player subroutine:
 ; push to stack the Y coordinate and the X coordinate
-LDA #$00
-STA sprite_offset ; set sprite off set to be zero before drawing any sprites
+; LDA #$00
+; STA sprite_offset ; set sprite off set to be zero before drawing any sprites
 ; LDA #$00
 ; STA choose_sprite_orientation
 
@@ -112,7 +112,7 @@ LDA #$70 ; Y-Coordinate
 sta current_player_y
 LDA #$50 ; X coordinate
 STA current_player_x 
-JSR draw_player
+; JSR draw_player
 
 ; lda #$04
 ; sta choose_sprite_orientation ; with an offset of 4, it will display the butterfly with its wings slightly closed
@@ -164,7 +164,7 @@ forever:
   CLC                  ; Clear the carry flag
   ADC #$1              ; Add one to the A register
 
-  CMP #$3C              ; Compare A (tick_count) with 0x3C -> 60
+  CMP #$3F              ; Compare A (tick_count) with 0x3C -> 60
   BEQ reset_tick       ; If equal, branch to resetCount label
 
   CMP #$1E              ; Compare A again (tick_count) with 0x1E -> 30
@@ -172,9 +172,9 @@ forever:
   
   ; If CMP #30 was equal, fall through to here
   STA tick_count
-  LDX #$04             ; Load A with 04 for chosing sprite orientation
-  STX choose_sprite_orientation    
-  JMP done             ; Jump to done to avoid falling through to resetCount
+  LDA #$10             ; Load A with 04 for chosing sprite orientation
+  STA choose_sprite_orientation    
+  RTS            
 
 reset_tick:
   LDA #$00             ; Load A with 0
@@ -187,7 +187,30 @@ done:
 .endproc
 
 .proc update
+  LDA #$70 ; Y-Coordinate
+  sta current_player_y
+  LDA #$50 ; X coordinate
+  STA current_player_x 
   JSR draw_player
+
+  LDA #$80 ; Y-Coordinate
+  sta current_player_y
+  LDA #$40 ; X coordinate
+  STA current_player_x 
+  JSR draw_player
+
+  LDA #$80 ; Y-Coordinate
+  sta current_player_y
+  LDA #$60 ; X coordinate
+  STA current_player_x 
+  JSR draw_player
+
+  LDA #$90 ; Y-Coordinate
+  sta current_player_y
+  LDA #$50 ; X coordinate
+  STA current_player_x 
+  JSR draw_player
+
   RTS
 .endproc
 
