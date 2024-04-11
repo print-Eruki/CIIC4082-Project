@@ -1,4 +1,4 @@
-FILE = "first_map.bin"
+FILE = ""
 
 def read_bin(file):
     with open(file=file, mode="rb") as f:
@@ -48,5 +48,9 @@ def create_asm(package):
         f.write('\n'.join(asm))
 
 if __name__ == "__main__":
-    
-    create_asm(package(read_bin(FILE)[0]))
+    from sys import argv   
+    if len(argv) > 1:
+        FILE = argv[1]
+        create_asm(package(read_bin(FILE)[0]))
+    else:
+        print("No argument provided")
