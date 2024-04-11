@@ -18,6 +18,7 @@ high_byte_nametable_address: .res 1
 low_byte_nametable_address: .res 1
 current_byte_of_tiles: .res 1
 fix_low_byte_row_index: .res 1
+choose_which_background: .res 1 ; 0 -> background stage 1 part 1 | 1 -> stage 1 part 2 | 2 -> stage 2 part 1 | 3 -> stage 2 part 2
 .exportzp sprite_offset, choose_sprite_orientation, player_1_x, player_1_y, tick_count, wings_flap_state, player_direction
 
 .segment "CODE"
@@ -68,39 +69,23 @@ fix_low_byte_row_index: .res 1
 LDY #$00
 sty fix_low_byte_row_index
 STY low_byte_nametable_address
+LDA #$02 ; background stage 1 part 1
+STA choose_which_background
 LDA #$20
 STA high_byte_nametable_address
-load_background:
-  LDA background_stage_1, Y
-  STA current_byte_of_tiles
-  JSR display_byte_of_tiles
-  INY
-  increment_fix_low_byte_row_index:
-    lda fix_low_byte_row_index
-    clc
-    adc #$01
-    sta fix_low_byte_row_index
-  lda fix_low_byte_row_index
-  cmp #$04 ; compare if fix_low_byte_row_index is 4
-  BNE skip_low_byte_row_fix
-    ; lda #$e0
-    lda low_byte_nametable_address
-    clc
-    adc #$20 ; add 32 to skip to the next row
-    sta low_byte_nametable_address
-    bcc skip_overflow_fix_2
-      ; if PC is here, then add 1 to high byte because of overflow
-      lda high_byte_nametable_address
-      clc
-      adc #$01
-      sta high_byte_nametable_address
-    skip_overflow_fix_2:
-      LDA #$00
-      sta fix_low_byte_row_index
 
-  skip_low_byte_row_fix:
-    cpy #$3C
-    bne load_background
+JSR display_background
+
+LDY #$00
+sty fix_low_byte_row_index
+STY low_byte_nametable_address
+LDA #$03 ; stage 1 part 2
+STA choose_which_background
+LDA #$24
+STA high_byte_nametable_address
+
+JSR display_background
+
 
 ; LDX #$20
 ; STX high_byte_nametable_address
@@ -181,10 +166,90 @@ forever:
 .endproc
 
 ; PARAMS:
+; fix_low_byte_row_index -> should be set to zero (will go from 0 to 4 then back to 0)
+; low_byte_nametable_address
+; high_byte_nametable_address
+; choose_which_background
+.proc display_background
+  PHP
+  PHA
+  TXA
+  PHA
+  TYA
+  PHA
+
+load_background:
+  LDA choose_which_background
+  CMP #$00
+  BNE test_for_stage_1_part_2
+
+    LDA background_stage_1_part_1, Y
+    JMP background_selected
+
+test_for_stage_1_part_2:
+  CMP #$01
+  BNE test_for_stage_2_part_1
+
+    LDA background_stage_1_part_2, Y
+    JMP background_selected
+test_for_stage_2_part_1:
+  CMP #$02
+  BNE test_for_stage_2_part_2
+
+    LDA background_stage_2_part_1, Y
+    jmp background_selected
+
+test_for_stage_2_part_2:
+  ; at this point, this is practically an ELSE statement so it must be stage 2 part 2
+    LDA background_stage_2_part_2, Y
+
+  background_selected:
+  
+  STA current_byte_of_tiles
+  JSR display_byte_of_tiles
+  INY
+  increment_fix_low_byte_row_index:
+    lda fix_low_byte_row_index
+    clc
+    adc #$01
+    sta fix_low_byte_row_index
+  lda fix_low_byte_row_index
+  cmp #$04 ; compare if fix_low_byte_row_index is 4
+  BNE skip_low_byte_row_fix
+    ; lda #$e0
+    lda low_byte_nametable_address
+    clc
+    adc #$20 ; add 32 to skip to the next row
+    sta low_byte_nametable_address
+    bcc skip_overflow_fix_2
+      ; if PC is here, then add 1 to high byte because of overflow
+      lda high_byte_nametable_address
+      clc
+      adc #$01
+      sta high_byte_nametable_address
+    skip_overflow_fix_2:
+      LDA #$00
+      sta fix_low_byte_row_index
+
+  skip_low_byte_row_fix:
+    cpy #$3C
+    bne load_background
+
+  PLA
+  TAY
+  PLA
+  TAX
+  PLA
+  PLP 
+RTS
+.endproc
+
+; PARAMS:
 ; current_byte_of_tiles
 ; tile_to_display
 ; high_byte_nametable_address 
 ; low_byte_nametable_address (must be updated within function)
+
 .proc display_byte_of_tiles
   PHP
   PHA
@@ -617,7 +682,7 @@ RTS
 .addr nmi_handler, reset_handler, irq_handler
 .segment "RODATA"
 
-background_stage_1:
+background_stage_1_part_1:
 .byte $AA, $AA, $AA, $AA
 .byte $8D, $4D, $40, $02
 .byte $8D, $CD, $FC, $F2
@@ -633,9 +698,60 @@ background_stage_1:
 .byte $00, $C3, $0F, $F2
 .byte $B0, $C3, $00, $02
 .byte $AA, $AA, $AA, $AA
+
+background_stage_1_part_2:
+.byte $AA, $AA, $AA, $AA
+.byte $8D, $4D, $40, $02
+.byte $8D, $CD, $FC, $F2
+.byte $8D, $CD, $CC, $F2
+.byte $80, $CD, $CC, $F6
+.byte $80, $CF, $CC, $F0
+.byte $B0, $C0, $00, $FE
+.byte $B0, $CF, $FC, $02
+.byte $B0, $CC, $00, $02
+.byte $B0, $FF, $FC, $FE
+.byte $B0, $43, $0C, $FE
+.byte $B0, $C3, $0C, $02
+.byte $00, $C3, $0F, $F2
+.byte $B0, $C3, $00, $02
+.byte $AA, $AA, $AA, $AA
+
+
+background_stage_2_part_1:
+.byte $AA, $AA, $AA, $AA
+.byte $8D, $4D, $40, $02
+.byte $8D, $CD, $FC, $F2
+.byte $8D, $CD, $CC, $F2
+.byte $80, $CD, $CC, $F6
+.byte $80, $CF, $CC, $F0
+.byte $B0, $C0, $00, $FE
+.byte $B0, $CF, $FC, $02
+.byte $B0, $CC, $00, $02
+.byte $B0, $FF, $FC, $FE
+.byte $AA, $AA, $AA, $AA
+.byte $AA, $AA, $AA, $AA
+.byte $AA, $AA, $AA, $AA
+.byte $AA, $AA, $AA, $AA
+.byte $AA, $AA, $AA, $AA
+
+background_stage_2_part_2:
+.byte $AA, $AA, $AA, $AA
+.byte $AA, $AA, $AA, $AA
+.byte $AA, $AA, $AA, $AA
+.byte $AA, $AA, $AA, $AA
+.byte $80, $CD, $CC, $F6
+.byte $80, $CF, $CC, $F0
+.byte $B0, $C0, $00, $FE
+.byte $B0, $CF, $FC, $02
+.byte $B0, $CC, $00, $02
+.byte $B0, $FF, $FC, $FE
+.byte $B0, $43, $0C, $FE
+.byte $B0, $C3, $0C, $02
+.byte $00, $C3, $0F, $F2
+.byte $B0, $C3, $00, $02
+.byte $AA, $AA, $AA, $AA
+
 palettes:
-
-
 ; Background Palettes
 .byte $0f, $16, $21, $30
 .byte $0f, $10, $18, $20
