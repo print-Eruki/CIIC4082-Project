@@ -19,6 +19,7 @@ low_byte_nametable_address: .res 1
 current_byte_of_tiles: .res 1
 fix_low_byte_row_index: .res 1
 choose_which_background: .res 1 ; 0 -> background stage 1 part 1 | 1 -> stage 1 part 2 | 2 -> stage 2 part 1 | 3 -> stage 2 part 2
+ppuctrl_settings: .res 1
 .exportzp sprite_offset, choose_sprite_orientation, player_1_x, player_1_y, tick_count, wings_flap_state, player_direction
 
 .segment "CODE"
@@ -34,16 +35,16 @@ choose_which_background: .res 1 ; 0 -> background stage 1 part 1 | 1 -> stage 1 
   STA OAMADDR
   LDA #$02 ; once stored to OAMDMA, high speed transfer begins of 256 bytes from $0200 - $02ff into OAM
   STA OAMDMA
-  LDA #$00
-  STA PPUSCROLL ; $2005 IS PPU SCROLL, it takes two writes: X Scroll , Y Scroll
-  STA PPUSCROLL
-
+ 
   JSR update_tick_count ;Handle the update tick (resetting to zero or incrementing)
 
   JSR read_controller ; reads the controller and changes the player's location accordingly
 
   JSR update ; draws the player on the screen
 
+  LDA #$00
+  STA PPUSCROLL ; $2005 IS PPU SCROLL, it takes two writes: X Scroll , Y Scroll
+  STA PPUSCROLL
 
   RTI
 .endproc
@@ -69,7 +70,7 @@ choose_which_background: .res 1 ; 0 -> background stage 1 part 1 | 1 -> stage 1 
 LDY #$00
 sty fix_low_byte_row_index
 STY low_byte_nametable_address
-LDA #$02 ; background stage 1 part 1
+LDA #$00 ; background stage 1 part 1
 STA choose_which_background
 LDA #$20
 STA high_byte_nametable_address
@@ -79,7 +80,7 @@ JSR display_background
 LDY #$00
 sty fix_low_byte_row_index
 STY low_byte_nametable_address
-LDA #$03 ; stage 1 part 2
+LDA #$01 ; stage 1 part 2
 STA choose_which_background
 LDA #$24
 STA high_byte_nametable_address
@@ -141,6 +142,7 @@ vblankwait:       ; wait for another vblank before continuing
 
   LDA #%10010000  ; turn on NMIs, sprites use first pattern table
   STA PPUCTRL
+  sta ppuctrl_settings
   LDA #%00011110  ; turn on screen
   STA PPUMASK
 
@@ -502,13 +504,28 @@ read_controller_loop:
 
 ;  ; direction: UP -> 0 | RIGHT -> 16 (#$10) | LEFT -> 32 (#$20) | DOWN -> 48 (#$30)
 
-; Reads A and the right arrow key to turn right
-ReadA: ; en el original NES controller, la A está a la derecha así que la "S" en el teclado es la A
-  ; LDA $4016
+ReadA:
   LDA controller_read_output
-  AND #%10000001 ; BIT MASK to look if accumulator holds a value different than 0 after performing the AND
+  AND #%10000000
+  beq ReadADone
+  LDA tick_count
+  cmp #$00
+  bne ReadADone
+  ; only runs if A is pressed and tick_count is 0
+  LDA ppuctrl_settings
+  EOR #%00000001 ; flip bit #1 to its opposite
+  STA ppuctrl_settings
+  STA PPUCTRL
+
+ReadADone:
+
+; Reads A and the right arrow key to turn right
+ReadRightArrowKey: ; en el original NES controller, la A está a la derecha así que la "S" en el teclado es la A
+
+  LDA controller_read_output
+  AND #%00000001 ; BIT MASK to look if accumulator holds a value different than 0 after performing the AND
   ; here we are checking to see if the A was pressed
-  BEQ ReadADone
+  BEQ ReadRightArrowKeyDone
   
   ; if A is pressed, move sprite to the right
   LDA player_1_x
@@ -518,7 +535,7 @@ ReadA: ; en el original NES controller, la A está a la derecha así que la "S" 
   LDA #$10
   STA player_direction
 
-  ReadADone:
+  ReadRightArrowKeyDone:
 
 ; reads B and the left arrow key to turn left
 ReadB: ; la "A" en el teclado de la computadora es la B en el NES
@@ -700,21 +717,21 @@ background_stage_1_part_1:
 .byte $AA, $AA, $AA, $AA
 
 background_stage_1_part_2:
-.byte $AA, $AA, $AA, $AA
-.byte $8D, $4D, $40, $02
-.byte $8D, $CD, $FC, $F2
-.byte $8D, $CD, $CC, $F2
-.byte $80, $CD, $CC, $F6
-.byte $80, $CF, $CC, $F0
-.byte $B0, $C0, $00, $FE
-.byte $B0, $CF, $FC, $02
-.byte $B0, $CC, $00, $02
-.byte $B0, $FF, $FC, $FE
-.byte $B0, $43, $0C, $FE
-.byte $B0, $C3, $0C, $02
-.byte $00, $C3, $0F, $F2
-.byte $B0, $C3, $00, $02
-.byte $AA, $AA, $AA, $AA
+  .byte $aa,$aa,$aa,$aa
+  .byte $95,$40,$00,$32
+  .byte $9f,$ff,$fc,$42
+  .byte $95,$00,$0f,$02
+  .byte $bf,$f0,$5c,$c2
+  .byte $00,$00,$dc,$12
+  .byte $bf,$03,$5f,$1e
+  .byte $bc,$0f,$00,$c6
+  .byte $b0,$04,$0f,$06
+  .byte $80,$0c,$0c,$02
+  .byte $9f,$ff,$0c,$32
+  .byte $8f,$13,$0c,$c0
+  .byte $8f,$33,$ff,$02
+  .byte $80,$30,$00,$02
+  .byte $aa,$aa,$aa,$aa
 
 
 background_stage_2_part_1:
