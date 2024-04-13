@@ -19,6 +19,7 @@ low_byte_nametable_address: .res 1
 current_byte_of_tiles: .res 1
 fix_low_byte_row_index: .res 1
 choose_which_background: .res 1 ; 0 -> background stage 1 part 1 | 1 -> stage 1 part 2 | 2 -> stage 2 part 1 | 3 -> stage 2 part 2
+current_stage: .res 1 ; 1 -> stage 1 | 2 -> stage 2
 ppuctrl_settings: .res 1
 .exportzp sprite_offset, choose_sprite_orientation, player_1_x, player_1_y, tick_count, wings_flap_state, player_direction
 
@@ -67,6 +68,11 @@ ppuctrl_settings: .res 1
     BNE load_palettes
 
 
+lda #$01
+sta current_stage
+; preguntart en que stage tu estas
+; choose_which background = 0
+
 LDY #$00
 sty fix_low_byte_row_index
 STY low_byte_nametable_address
@@ -77,6 +83,7 @@ STA high_byte_nametable_address
 
 JSR display_background
 
+
 LDY #$00
 sty fix_low_byte_row_index
 STY low_byte_nametable_address
@@ -86,6 +93,8 @@ LDA #$24
 STA high_byte_nametable_address
 
 JSR display_background
+
+
 
 
 ; LDX #$20
@@ -267,6 +276,18 @@ RTS
     ROL tile_to_display ; rotate left the carry flag onto tile_to_display : C <- 7 6 5 4 3 2 1 0 <- C
     ASL current_byte_of_tiles ; C <- 7 6 5 4 3 2 1 0 <- 0
     ROL tile_to_display
+    ; ask in which stage you are in
+    ; si estas en stage 2 pues sumale 4 al tile to display
+    lda current_stage
+    CMP #$01
+    BEQ skip_addition_to_display
+      ; here it's stage 2
+      lda tile_to_display
+      clc
+      adc #$04
+      sta tile_to_display
+
+    skip_addition_to_display:
     JSR display_4_background_tiles
 
     LDA low_byte_nametable_address
@@ -700,7 +721,8 @@ RTS
 .segment "RODATA"
 
 background_stage_1_part_1:
-.byte $AA, $AA, $AA, $AA
+.byte $B1, $B1, $B1, $B1
+; .byte $AA, $AA, $AA, $AA
 .byte $8D, $4D, $40, $02
 .byte $8D, $CD, $FC, $F2
 .byte $8D, $CD, $CC, $F2
