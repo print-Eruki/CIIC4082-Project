@@ -21,6 +21,7 @@ fix_low_byte_row_index: .res 1
 choose_which_background: .res 1 ; 0 -> background stage 1 part 1 | 1 -> stage 1 part 2 | 2 -> stage 2 part 1 | 3 -> stage 2 part 2
 current_stage: .res 1 ; 1 -> stage 1 | 2 -> stage 2
 ppuctrl_settings: .res 1
+change_background_flag: .res 1
 .exportzp sprite_offset, choose_sprite_orientation, player_1_x, player_1_y, tick_count, wings_flap_state, player_direction
 
 .segment "CODE"
@@ -42,6 +43,18 @@ ppuctrl_settings: .res 1
   JSR read_controller ; reads the controller and changes the player's location accordingly
 
   JSR update ; draws the player on the screen
+
+  ; LDA change_background_flag
+  ; CMP #$01
+  ; BNE skip_change_background
+  ;   LDA #$02
+  ;   STA current_stage
+  ;   jsr display_stage_background
+  ;   lda #$00
+  ;   sta change_background_flag
+
+
+  skip_change_background:
 
   LDA #$00
   STA PPUSCROLL ; $2005 IS PPU SCROLL, it takes two writes: X Scroll , Y Scroll
@@ -72,30 +85,12 @@ lda #$01
 sta current_stage
 ; preguntart en que stage tu estas
 ; choose_which background = 0
-
-LDY #$00
-sty fix_low_byte_row_index
-STY low_byte_nametable_address
-LDA #$00 ; background stage 1 part 1
-STA choose_which_background
-LDA #$20
-STA high_byte_nametable_address
-
-JSR display_background
+JSR display_stage_background
 
 
-LDY #$00
-sty fix_low_byte_row_index
-STY low_byte_nametable_address
-LDA #$01 ; stage 1 part 2
-STA choose_which_background
-LDA #$24
-STA high_byte_nametable_address
-
-JSR display_background
-
-
-
+; lda #$02
+; sta current_stage
+; JSR display_stage_background
 
 ; LDX #$20
 ; STX high_byte_nametable_address
@@ -176,12 +171,75 @@ forever:
   rts ; return from subroutine
 .endproc
 
+; PARAMS
+; current_stage --> 1 for stage 1 | 2 for stage 2
+.proc display_stage_background
+  PHP
+  PHA
+  TXA
+  PHA
+  TYA
+  PHA
+
+  LDA current_stage
+  CMP #$02
+  BEQ prep_stage_2 ; if current_stage is 2, then branch to prep for stage 2; else: jump to prep for stage 1
+
+  prep_stage_1:
+    ; current_stage = 1
+    LDA #$00
+    sta choose_which_background ; setting choose_which_background to 0 so it can choose the maps for stage 1
+
+  JMP finished_preparing
+
+  prep_stage_2:
+    ; current_stage = 2
+    LDA #$02
+    sta choose_which_background
+
+
+  finished_preparing:
+  LDY #$00
+  sty fix_low_byte_row_index
+  STY low_byte_nametable_address
+
+  LDA #$20
+  STA high_byte_nametable_address
+
+  JSR display_one_nametable_background
+
+    ; MUST ADD 1 to choose_which_background to display the SECOND part of that stage
+      LDA choose_which_background
+      clc
+      adc #$01
+      sta choose_which_background ; choose_which_background += 1
+    
+
+  LDY #$00
+  sty fix_low_byte_row_index
+  STY low_byte_nametable_address
+
+  LDA #$24
+  STA high_byte_nametable_address
+
+  JSR display_one_nametable_background
+
+
+  PLA
+  TAY
+  PLA
+  TAX
+  PLA
+  PLP 
+RTS
+.endproc
+
 ; PARAMS:
 ; fix_low_byte_row_index -> should be set to zero (will go from 0 to 4 then back to 0)
 ; low_byte_nametable_address
 ; high_byte_nametable_address
 ; choose_which_background
-.proc display_background
+.proc display_one_nametable_background
   PHP
   PHA
   TXA
@@ -537,10 +595,12 @@ ReadA:
   EOR #%00000001 ; flip bit #1 to its opposite
   STA ppuctrl_settings
   STA PPUCTRL
+  lda #$01
+  sta change_background_flag
 
 ReadADone:
 
-; Reads A and the right arrow key to turn right
+; Reads the right arrow key to turn right
 ReadRightArrowKey: ; en el original NES controller, la A está a la derecha así que la "S" en el teclado es la A
 
   LDA controller_read_output
