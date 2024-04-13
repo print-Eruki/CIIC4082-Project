@@ -699,74 +699,8 @@ RTS
 .addr nmi_handler, reset_handler, irq_handler
 .segment "RODATA"
 
-background_stage_1_part_1:
-.byte $AA, $AA, $AA, $AA
-.byte $8D, $4D, $40, $02
-.byte $8D, $CD, $FC, $F2
-.byte $8D, $CD, $CC, $F2
-.byte $80, $CD, $CC, $F6
-.byte $80, $CF, $CC, $F0
-.byte $B0, $C0, $00, $FE
-.byte $B0, $CF, $FC, $02
-.byte $B0, $CC, $00, $02
-.byte $B0, $FF, $FC, $FE
-.byte $B0, $43, $0C, $FE
-.byte $B0, $C3, $0C, $02
-.byte $00, $C3, $0F, $F2
-.byte $B0, $C3, $00, $02
-.byte $AA, $AA, $AA, $AA
-
-background_stage_1_part_2:
-  .byte $aa,$aa,$aa,$aa
-  .byte $95,$40,$00,$32
-  .byte $9f,$ff,$fc,$42
-  .byte $95,$00,$0f,$02
-  .byte $bf,$f0,$5c,$c2
-  .byte $00,$00,$dc,$12
-  .byte $bf,$03,$5f,$1e
-  .byte $bc,$0f,$00,$c6
-  .byte $b0,$04,$0f,$06
-  .byte $80,$0c,$0c,$02
-  .byte $9f,$ff,$0c,$32
-  .byte $8f,$13,$0c,$c0
-  .byte $8f,$33,$ff,$02
-  .byte $80,$30,$00,$02
-  .byte $aa,$aa,$aa,$aa
-
-
-background_stage_2_part_1:
-.byte $AA, $AA, $AA, $AA
-.byte $8D, $4D, $40, $02
-.byte $8D, $CD, $FC, $F2
-.byte $8D, $CD, $CC, $F2
-.byte $80, $CD, $CC, $F6
-.byte $80, $CF, $CC, $F0
-.byte $B0, $C0, $00, $FE
-.byte $B0, $CF, $FC, $02
-.byte $B0, $CC, $00, $02
-.byte $B0, $FF, $FC, $FE
-.byte $AA, $AA, $AA, $AA
-.byte $AA, $AA, $AA, $AA
-.byte $AA, $AA, $AA, $AA
-.byte $AA, $AA, $AA, $AA
-.byte $AA, $AA, $AA, $AA
-
-background_stage_2_part_2:
-.byte $AA, $AA, $AA, $AA
-.byte $AA, $AA, $AA, $AA
-.byte $AA, $AA, $AA, $AA
-.byte $AA, $AA, $AA, $AA
-.byte $80, $CD, $CC, $F6
-.byte $80, $CF, $CC, $F0
-.byte $B0, $C0, $00, $FE
-.byte $B0, $CF, $FC, $02
-.byte $B0, $CC, $00, $02
-.byte $B0, $FF, $FC, $FE
-.byte $B0, $43, $0C, $FE
-.byte $B0, $C3, $0C, $02
-.byte $00, $C3, $0F, $F2
-.byte $B0, $C3, $00, $02
-.byte $AA, $AA, $AA, $AA
+.include "maps/background_stage_1.asm"
+.include "maps/background_stage_2.asm"
 
 palettes:
 ; Background Palettes
