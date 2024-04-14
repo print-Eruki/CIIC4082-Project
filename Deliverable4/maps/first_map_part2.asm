@@ -1,4 +1,4 @@
-first_map_part2
+first_map_part2:
     .byte $aa,$aa,$aa,$aa
     .byte $95,$40,$00,$32
     .byte $9f,$ff,$fc,$42

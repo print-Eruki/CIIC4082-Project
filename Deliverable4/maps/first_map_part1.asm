@@ -1,4 +1,4 @@
-first_map_part1
+background_stage_1_part_1:
     .byte $aa,$aa,$aa,$aa
     .byte $8d,$4d,$40,$02
     .byte $8d,$cd,$fc,$f2

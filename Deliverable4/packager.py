@@ -39,7 +39,7 @@ def package(map_bin):
  
 
 def create_asm(package):    
-    asm = [f"{FILE[:-4]}"]
+    asm = [f"{FILE[:-4]}:"]
     for row in package:
         asm_row = ','.join([f'${row[i][2:] + row[i+1][2:]}' for i in range(0,len(row)-1,2)])
         asm.append('    .byte ' + asm_row)
@@ -53,4 +53,5 @@ if __name__ == "__main__":
         FILE = argv[1]
         create_asm(package(read_bin(FILE)[0]))
     else:
-        print("No argument provided")
+        FILE = "Deliverable4/second_map_part1.bin"
+        create_asm(package(read_bin(FILE)[0]))
