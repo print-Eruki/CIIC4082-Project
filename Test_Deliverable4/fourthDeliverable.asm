@@ -622,16 +622,23 @@ ReadB: ; la "A" en el teclado de la computadora es la B en el NES
   BEQ ReadBDone
 
   LDA #$01
-  STA flag_scroll
-  ; ; if A is pressed, move sprite to the right
-  ; LDA player_1_x
-  ; SEC ; make sure the carry flag is set for subtraction
-  ; SBC #$01 ; X = X - 1
-  ; sta player_1_x
-  ; LDA #$20
-  ; STA player_direction
+  STA flag_scroll  
 
   ReadBDone:
+
+ReadLeft:
+  LDA controller_read_output
+  AND #%00000010 ;check if left arrow button is pressed
+  BEQ ReadLeftDone
+
+  LDA player_1_x
+  SEC ; make sure the carry flag is set for subtraction
+  SBC #$01 ; X = X - 1
+  sta player_1_x
+  LDA #$20
+  STA player_direction
+
+  ReadLeftDone:
 
 ReadUp:
   LDA controller_read_output
