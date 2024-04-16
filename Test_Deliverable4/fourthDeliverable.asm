@@ -784,7 +784,8 @@ background_stage_1_part_1:
 .byte $B1, $B1, $B1, $B1
 ; .byte $AA, $AA, $AA, $AA
 .byte $8D, $4D, $40, $02
-.byte $8D, $CD, $FC, $F2
+; .byte $8D, $CD, $FC, $F2
+.byte $00, $00, $00, $00
 .byte $8D, $CD, $CC, $F2
 .byte $80, $CD, $CC, $F6
 .byte $80, $CF, $CC, $F0
