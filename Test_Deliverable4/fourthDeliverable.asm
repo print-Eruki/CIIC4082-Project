@@ -19,8 +19,12 @@ low_byte_nametable_address: .res 1
 current_byte_of_tiles: .res 1
 fix_low_byte_row_index: .res 1
 choose_which_background: .res 1 ; 0 -> background stage 1 part 1 | 1 -> stage 1 part 2 | 2 -> stage 2 part 1 | 3 -> stage 2 part 2
+current_stage: .res 1 ; 1 -> stage 1 | 2 -> stage 2
 ppuctrl_settings: .res 1
-.exportzp sprite_offset, choose_sprite_orientation, player_1_x, player_1_y, tick_count, wings_flap_state, player_direction
+change_background_flag: .res 1
+scroll: .res 1 ;used to increment the PPUSCROLL register
+flag_scroll: .res 1 ; used to know when to write on ppuscroll
+.exportzp sprite_offset, choose_sprite_orientation, player_1_x, player_1_y, tick_count, wings_flap_state, player_direction, scroll, flag_scroll
 
 .segment "CODE"
 .proc irq_handler
@@ -42,9 +46,40 @@ ppuctrl_settings: .res 1
 
   JSR update ; draws the player on the screen
 
-  LDA #$00
+  LDA change_background_flag
+  CMP #$01
+  BNE skip_change_background
+    ; LDA #$02
+    ; STA current_stage
+    LDA #$00
+    STA scroll
+    LDA current_stage ;
+    EOR #%11
+    STA current_stage
+
+    jsr display_stage_background
+    lda #$00
+    sta change_background_flag
+
+  LDA flag_scroll
+  CMP #$00
+  BEQ skip_ppuscroll_write
+
+  skip_change_background:
+
+  INC scroll
+  LDA scroll
+  BNE skip_scroll_reset
+    LDA #255
+    STA scroll 
+  
+  skip_scroll_reset:
   STA PPUSCROLL ; $2005 IS PPU SCROLL, it takes two writes: X Scroll , Y Scroll
+  LDA #$00
   STA PPUSCROLL
+
+
+  skip_ppuscroll_write: ;Skip writing the ppuscroll until the player presses
 
   RTI
 .endproc
@@ -67,72 +102,12 @@ ppuctrl_settings: .res 1
     BNE load_palettes
 
 
-LDY #$00
-sty fix_low_byte_row_index
-STY low_byte_nametable_address
-LDA #$00 ; background stage 1 part 1
-STA choose_which_background
-LDA #$20
-STA high_byte_nametable_address
+lda #$01
+sta current_stage
+; preguntart en que stage tu estas
+; choose_which background = 0
+JSR display_stage_background
 
-JSR display_background
-
-LDY #$00
-sty fix_low_byte_row_index
-STY low_byte_nametable_address
-LDA #$01 ; stage 1 part 2
-STA choose_which_background
-LDA #$24
-STA high_byte_nametable_address
-
-JSR display_background
-
-
-; LDX #$20
-; STX high_byte_nametable_address
-; LDX #$18
-; STX low_byte_nametable_address
-; LDX #$AA ; 10 10 10 10
-; stx current_byte_of_tiles
-; jsr display_byte_of_tiles
-
-; lda #$e0
-; ; LDA low_byte_nametable_address
-; ; clc
-; ; adc #$20
-; sta low_byte_nametable_address
-; ; LDX #$20
-; ; STX high_byte_nametable_address
-; ; LDX #$e0
-; ; STX low_byte_nametable_address
-; LDX #$AA ; 10 10 10 10
-; stx current_byte_of_tiles
-; jsr display_byte_of_tiles
-
-; LDX #$20
-; STX high_byte_nametable_address
-; LDX #$10
-; STX low_byte_nametable_address
-; LDX #$AA ; 10 10 11 01
-; stx current_byte_of_tiles
-; jsr display_byte_of_tiles
-
-; LDX #$06 ; tile
-; STX tile_to_display
-; LDX #$20
-; STX high_byte_nametable_address
-; LDX #$EF
-; STX low_byte_nametable_address
-; jsr display_4_background_tiles
-
-; set attribute table for bush tile
-  ; LDA PPUSTATUS
-  ; LDA #$23
-  ; STA PPUADDR
-  ; LDA #$D4
-  ; STA PPUADDR
-  ; LDA #%00100000
-  ; STA PPUDATA
 
 
 
@@ -167,12 +142,101 @@ forever:
   rts ; return from subroutine
 .endproc
 
+; PARAMS
+; current_stage --> 1 for stage 1 | 2 for stage 2
+.proc display_stage_background
+  PHP
+  PHA
+  TXA
+  PHA
+  TYA
+  PHA
+
+  ; clear_vblank_bit:
+  ;   LDA #$00
+  ;   STA PPUSTATUS
+
+  ; vblankwait:       ; wait for another vblank before continuing
+  ;   BIT PPUSTATUS
+  ;   BPL vblankwait
+
+  disable_rendering:
+    LDA #%00000000  ; turning off backgrounds not sprites
+    STA PPUMASK
+
+    
+    LDA ppuctrl_settings  ;turn off NMI
+    AND #%01111111
+    STA PPUCTRL
+    STA ppuctrl_settings
+
+  LDA current_stage
+  CMP #$02
+  BEQ prep_stage_2 ; if current_stage is 2, then branch to prep for stage 2; else: jump to prep for stage 1
+
+  prep_stage_1:
+    ; current_stage = 1
+    LDA #$00
+    sta choose_which_background ; setting choose_which_background to 0 so it can choose the maps for stage 1
+
+  JMP finished_preparing
+
+  prep_stage_2:
+    ; current_stage = 2
+    LDA #$02
+    sta choose_which_background
+
+
+  finished_preparing:
+  LDY #$00
+  sty fix_low_byte_row_index
+  STY low_byte_nametable_address
+
+  LDA #$20
+  STA high_byte_nametable_address
+
+  JSR display_one_nametable_background
+
+    ; MUST ADD 1 to choose_which_background to display the SECOND part of that stage
+      LDA choose_which_background
+      clc
+      adc #$01
+      sta choose_which_background ; choose_which_background += 1
+    
+
+  LDY #$00
+  sty fix_low_byte_row_index
+  STY low_byte_nametable_address
+
+  LDA #$24
+  STA high_byte_nametable_address
+
+  JSR display_one_nametable_background
+
+  enable_rendering:
+
+    LDA #%10010000  ; turn on NMIs, sprites use first pattern table
+    STA PPUCTRL
+    STA ppuctrl_settings
+    LDA #%00011110  ; turn on screen
+    STA PPUMASK
+
+
+  PLA
+  TAY
+  PLA
+  TAX
+  PLA
+  PLP 
+RTS
+.endproc
+
 ; PARAMS:
 ; fix_low_byte_row_index -> should be set to zero (will go from 0 to 4 then back to 0)
 ; low_byte_nametable_address
 ; high_byte_nametable_address
 ; choose_which_background
-.proc display_background
+.proc display_one_nametable_background
   PHP
   PHA
   TXA
@@ -267,6 +331,18 @@ RTS
     ROL tile_to_display ; rotate left the carry flag onto tile_to_display : C <- 7 6 5 4 3 2 1 0 <- C
     ASL current_byte_of_tiles ; C <- 7 6 5 4 3 2 1 0 <- 0
     ROL tile_to_display
+    ; ask in which stage you are in
+    ; si estas en stage 2 pues sumale 4 al tile to display
+    lda current_stage
+    CMP #$01
+    BEQ skip_addition_to_display
+      ; here it's stage 2
+      lda tile_to_display
+      clc
+      adc #$04
+      sta tile_to_display
+
+    skip_addition_to_display:
     JSR display_4_background_tiles
 
     LDA low_byte_nametable_address
@@ -516,10 +592,12 @@ ReadA:
   EOR #%00000001 ; flip bit #1 to its opposite
   STA ppuctrl_settings
   STA PPUCTRL
+  lda #$01
+  sta change_background_flag
 
 ReadADone:
 
-; Reads A and the right arrow key to turn right
+; Reads the right arrow key to turn right
 ReadRightArrowKey: ; en el original NES controller, la A está a la derecha así que la "S" en el teclado es la A
 
   LDA controller_read_output
@@ -540,16 +618,18 @@ ReadRightArrowKey: ; en el original NES controller, la A está a la derecha así
 ; reads B and the left arrow key to turn left
 ReadB: ; la "A" en el teclado de la computadora es la B en el NES
   LDA controller_read_output
-  AND #%01000010 ; BIT MASK to look if accumulator holds a value different than 0
+  AND #%01000000 ; BIT MASK to look if accumulator holds a value different than 0
   BEQ ReadBDone
 
-  ; if A is pressed, move sprite to the right
-  LDA player_1_x
-  SEC ; make sure the carry flag is set for subtraction
-  SBC #$01 ; X = X - 1
-  sta player_1_x
-  LDA #$20
-  STA player_direction
+  LDA #$01
+  STA flag_scroll
+  ; ; if A is pressed, move sprite to the right
+  ; LDA player_1_x
+  ; SEC ; make sure the carry flag is set for subtraction
+  ; SBC #$01 ; X = X - 1
+  ; sta player_1_x
+  ; LDA #$20
+  ; STA player_direction
 
   ReadBDone:
 
@@ -699,6 +779,7 @@ RTS
 .addr nmi_handler, reset_handler, irq_handler
 .segment "RODATA"
 
+;include stage 1 and 2 maps
 .include "maps/background_stage_1.asm"
 .include "maps/background_stage_2.asm"
 
