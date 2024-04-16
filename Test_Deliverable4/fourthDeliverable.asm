@@ -615,13 +615,46 @@ ReadRightArrowKey: ; en el original NES controller, la A está a la derecha así
   ; here we are checking to see if the A was pressed
   BEQ ReadRightArrowKeyDone
   
-  ; if A is pressed, move sprite to the right
-  LDA player_1_x
-  CLC
-  ADC #$01 ; x = x + 1
-  STA player_1_x
-  LDA #$10
-  STA player_direction
+  ; check for collisions on top right side: player_x + 15, player_y + 3
+  lda player_1_x
+  clc
+  adc #$0F
+  STA sprite_collisions_x
+
+  lda player_1_y
+  clc
+  adc #$03
+  STA sprite_collisions_y
+
+  jsr check_collisions
+
+  LDA is_colliding
+  CMP #$01
+  BEQ ReadRightArrowKeyDone
+
+  ; check for collisions on bottom right side: player_x + 15, player_y + 14
+  
+  ; sprite_collisions_x should have the correct value already
+
+  lda player_1_y
+  clc
+  adc #$0E
+  sta sprite_collisions_y
+
+  jsr check_collisions
+
+  LDA is_colliding
+  CMP #$01
+  BEQ ReadRightArrowKeyDone 
+
+
+    ; if A is pressed, move sprite to the right
+    LDA player_1_x
+    CLC
+    ADC #$01 ; x = x + 1
+    STA player_1_x
+    LDA #$10
+    STA player_direction
 
   ReadRightArrowKeyDone:
 
@@ -631,13 +664,46 @@ ReadB: ; la "A" en el teclado de la computadora es la B en el NES
   AND #%01000010 ; BIT MASK to look if accumulator holds a value different than 0
   BEQ ReadBDone
 
-  ; if A is pressed, move sprite to the right
+
+  ; check collisions for top left: player_x + 1, player_y + 3
   LDA player_1_x
-  SEC ; make sure the carry flag is set for subtraction
-  SBC #$01 ; X = X - 1
-  sta player_1_x
-  LDA #$20
-  STA player_direction
+  clc
+  adc #$01
+  sta sprite_collisions_x
+
+  lda player_1_y
+  clc
+  adc #$03
+  sta sprite_collisions_y
+
+  jsr check_collisions
+
+  LDA is_colliding
+  CMP #$01
+  BEQ ReadBDone 
+
+; check collisions for bottom left: player_x + 1, player_y + 14
+
+; sprite_collisions_x should already have the correct value
+
+  lda player_1_y
+  clc
+  adc #$0E
+  sta sprite_collisions_y
+
+  jsr check_collisions
+
+  LDA is_colliding
+  CMP #$01
+  BEQ ReadBDone 
+
+    ; if A is pressed, move sprite to the right
+    LDA player_1_x
+    SEC ; make sure the carry flag is set for subtraction
+    SBC #$01 ; X = X - 1
+    sta player_1_x
+    LDA #$20
+    STA player_direction
 
   ReadBDone:
 
@@ -646,13 +712,15 @@ ReadUp:
   AND #%00001000
   BEQ ReadUpDone
 
-  ; check for collisions at (player_1_x , player_1_y - 1)
+  ; check for collisions at (player_1_x + 2 , player_1_y + 2)
   LDA player_1_x
+  clc
+  adc #$02
   STA sprite_collisions_x
 
   LDA player_1_y
-  SEC
-  SBC #$01
+  clc
+  adc #$02
   STA sprite_collisions_y
 
   JSR check_collisions
@@ -662,10 +730,10 @@ ReadUp:
   CMP #$01
   BEQ ReadUpDone
 
-  ; check collisions for top right
+  ; check collisions for top right : player_x + 14, player_y + 2
   LDA player_1_x
   CLC
-  ADC #$0C ; se le está añadiendo 12 porque si se le añade 8 pues realmente no está llegando a la 'ala' de la derecha arriba. Es como si llegaras hasta la mitad de la mariposa
+  ADC #$0E ; se le está añadiendo 14 porque si se le añade 8 pues realmente no está llegando a la 'ala' de la derecha arriba. Es como si llegaras hasta la mitad de la mariposa
   STA sprite_collisions_x
 
   ; sprite_collisions_y should already contain the correct value
@@ -691,8 +759,41 @@ ReadDown:
   AND #%00000100
   BEQ ReadDownDone
 
-  ; if Up is pressed, move sprite up
-  ; to move UP, we subtract from Y coordinate
+  ; check for collisions at player_x + 2, player_y + 15
+  LDA player_1_x
+  clc
+  ADC #$02
+  STA sprite_collisions_x
+
+  LDA player_1_y
+  CLC 
+  ADC #$0F
+  sta sprite_collisions_y
+  jsr check_collisions
+
+
+   ; if it's colliding, jump to readDownDone
+  LDA is_colliding
+  CMP #$01
+  BEQ ReadDownDone
+
+  ; now check if it's colliding at player_x + 14, player_y + 15
+  LDA player_1_x
+  CLC
+  ADC #$0E
+  STA sprite_collisions_x
+
+  ; sprite_collisions_y should already have its correct value
+  JSR check_collisions
+
+  ; if it's colliding, jump to readDownDone
+  LDA is_colliding
+  CMP #$01
+  BEQ ReadDownDone
+
+
+  ; if down is pressed, move sprite down
+  ; to move DOWN, we subtract from Y coordinate
   LDA player_1_y
   CLC 
   ADC #$01 ; Y = Y + 1
