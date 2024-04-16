@@ -32,7 +32,6 @@ flag_scroll: .res 1 ; used to know when to write on ppuscroll
 .endproc
 ; TODO: change palette colors of the background to match the ones I have in NEXXT and figure out how to draw what I have in the NEXXT session
 
-; dudas: no se porque solamente dibuja hasta cierto punto aunque le incremente la X. Tambien no se porque algunos bricks del background usan una paleta y otros usan otro
 .proc nmi_handler
 ; OAM is highly unstable so it needs to be continuously refreshed. that's why we write to it here 60 times per second
   LDA #$00 ; TELLS it to prepare for transfer of sprite data from address $0200 
@@ -52,20 +51,26 @@ flag_scroll: .res 1 ; used to know when to write on ppuscroll
     ; LDA #$02
     ; STA current_stage
     LDA #$00
-    STA scroll
-    LDA current_stage ;
+    LDA current_stage 
     EOR #%11
     STA current_stage
 
     jsr display_stage_background
     lda #$00
     sta change_background_flag
+    
+    reset_scrolling:
+      
+      STA scroll          ; reset scroll acumulator
+      STA flag_scroll     ; reset scroll flag
+      STA PPUSCROLL       ; PPUSCROLL_X = 0
+      STA PPUSCROLL       ; PPUSCROLL_Y = 0
+
+  skip_change_background:
 
   LDA flag_scroll
   CMP #$00
   BEQ skip_ppuscroll_write
-
-  skip_change_background:
 
   INC scroll
   LDA scroll
@@ -75,9 +80,8 @@ flag_scroll: .res 1 ; used to know when to write on ppuscroll
   
   skip_scroll_reset:
   STA PPUSCROLL ; $2005 IS PPU SCROLL, it takes two writes: X Scroll , Y Scroll
-  LDA #$00
+  LDA #$00      ; writing 00 to y, so that the next time we write to ppuscroll we write to the x
   STA PPUSCROLL
-
 
   skip_ppuscroll_write: ;Skip writing the ppuscroll until the player presses
 
@@ -121,9 +125,16 @@ vblankwait:       ; wait for another vblank before continuing
   LDA #%00011110  ; turn on screen
   STA PPUMASK
 
+
+  init_ppuscroll: ;Initialize ppu scroll to X -> 0 & Y -> 0
+    LDA #$00
+    STA PPUSCROLL
+    STA PPUSCROLL
+
 forever:
   JMP forever
 .endproc
+
 
 ; display_tile subroutine
 ; tile_index -> $00
@@ -152,21 +163,13 @@ forever:
   TYA
   PHA
 
-  ; clear_vblank_bit:
-  ;   LDA #$00
-  ;   STA PPUSTATUS
-
-  ; vblankwait:       ; wait for another vblank before continuing
-  ;   BIT PPUSTATUS
-  ;   BPL vblankwait
-
   disable_rendering:
     LDA #%00000000  ; turning off backgrounds not sprites
     STA PPUMASK
 
     
     LDA ppuctrl_settings  ;turn off NMI
-    AND #%01111111
+    AND #%01111000
     STA PPUCTRL
     STA ppuctrl_settings
 
@@ -587,23 +590,31 @@ ReadA:
   LDA tick_count
   cmp #$00
   bne ReadADone
-  ; only runs if A is pressed and tick_count is 0
-  LDA ppuctrl_settings
-  EOR #%00000001 ; flip bit #1 to its opposite
-  STA ppuctrl_settings
-  STA PPUCTRL
+
+
   lda #$01
   sta change_background_flag
 
-ReadADone:
+  ReadADone:
+
+; reads B to start scroll
+ReadB: 
+  LDA controller_read_output
+  AND #%01000000 
+  BEQ ReadBDone
+
+  LDA #$01
+  STA flag_scroll  
+
+  ReadBDone:
 
 ; Reads the right arrow key to turn right
-ReadRightArrowKey: ; en el original NES controller, la A está a la derecha así que la "S" en el teclado es la A
+ReadRight: ; en el original NES controller, la A está a la derecha así que la "S" en el teclado es la A
 
   LDA controller_read_output
   AND #%00000001 ; BIT MASK to look if accumulator holds a value different than 0 after performing the AND
   ; here we are checking to see if the A was pressed
-  BEQ ReadRightArrowKeyDone
+  BEQ ReadRightDone
   
   ; if A is pressed, move sprite to the right
   LDA player_1_x
@@ -613,18 +624,7 @@ ReadRightArrowKey: ; en el original NES controller, la A está a la derecha así
   LDA #$10
   STA player_direction
 
-  ReadRightArrowKeyDone:
-
-; reads B and the left arrow key to turn left
-ReadB: ; la "A" en el teclado de la computadora es la B en el NES
-  LDA controller_read_output
-  AND #%01000000 ; BIT MASK to look if accumulator holds a value different than 0
-  BEQ ReadBDone
-
-  LDA #$01
-  STA flag_scroll  
-
-  ReadBDone:
+  ReadRightDone:
 
 ReadLeft:
   LDA controller_read_output
