@@ -22,6 +22,13 @@ choose_which_background: .res 1 ; 0 -> background stage 1 part 1 | 1 -> stage 1 
 current_stage: .res 1 ; 1 -> stage 1 | 2 -> stage 2
 ppuctrl_settings: .res 1
 change_background_flag: .res 1
+sprite_collisions_x: .res 1
+sprite_collisions_y: .res 1
+mega_index_x: .res 1
+mega_index_y: .res 1
+map_offset_index: .res 1
+amt_double_left_shifts: .res 1
+is_colliding: .res 1
 .exportzp sprite_offset, choose_sprite_orientation, player_1_x, player_1_y, tick_count, wings_flap_state, player_direction
 
 .segment "CODE"
@@ -639,14 +646,43 @@ ReadUp:
   AND #%00001000
   BEQ ReadUpDone
 
-  ; if Up is pressed, move sprite up
-  ; to move UP, we subtract from Y coordinate
+  ; check for collisions at (player_1_x , player_1_y - 1)
+  LDA player_1_x
+  STA sprite_collisions_x
+
   LDA player_1_y
-  SEC 
-  SBC #$01 ; Y = Y - 1
-  STA player_1_y
-  LDA #$00 ; UP is 0
-  STA player_direction
+  SEC
+  SBC #$01
+  STA sprite_collisions_y
+
+  JSR check_collisions
+
+  ; if it's colliding, jump to readUpDone
+  LDA is_colliding
+  CMP #$01
+  BEQ ReadUpDone
+
+  ; check collisions for top right
+  LDA player_1_x
+  CLC
+  ADC #$0C ; se le está añadiendo 12 porque si se le añade 8 pues realmente no está llegando a la 'ala' de la derecha arriba. Es como si llegaras hasta la mitad de la mariposa
+  STA sprite_collisions_x
+
+  ; sprite_collisions_y should already contain the correct value
+  JSR check_collisions
+  LDA is_colliding
+  CMP #$01
+  BEQ ReadUpDone
+
+
+    ; if Up is pressed, move sprite up
+    ; to move UP, we subtract from Y coordinate
+    LDA player_1_y
+    SEC 
+    SBC #$01 ; Y = Y - 1
+    STA player_1_y
+    LDA #$00 ; UP is 0
+    STA player_direction
 
   ReadUpDone:
   
@@ -767,6 +803,136 @@ RTS
     STA sprite_offset ; sprite_offset += 16 
   ; restore registers and return
    PLA
+  TAY
+  PLA
+  TAX
+  PLA
+  PLP
+  RTS
+.endproc
+
+; PARAMS:
+; sprite_collisions_x
+; sprite_collisions_y
+; current_background - MUST CONTAIN THE CURRENT MAP THAT IS BEIND VIEWED ON THE SCREEN. (not implemented right now)
+; current_stage - must contain the current stage (should be implemented already)
+
+.proc check_collisions
+  PHP
+  PHA
+  TXA
+  PHA
+  TYA
+  PHA
+
+  ; mega_index_x = sprite_collisions_x // 64 (right shift 6 times)
+  LDA sprite_collisions_x
+    LSR A 
+    LSR A 
+    LSR A 
+    LSR A 
+    LSR A 
+    LSR A 
+  STA mega_index_x
+
+  ;mega_index_y = sprite_collisions_y // 16 (right shift 4 times)
+  LDA sprite_collisions_y
+    LSR A
+    LSR A
+    LSR A
+    LSR A
+  STA mega_index_y
+
+  ; map_offset_index = 4 * mega_index_y + mega_index_x
+
+  ; to get 4 * mega_index_y let's shift left twice
+  LDA mega_index_y
+    ASL A
+    ASL A
+  ; at this point: accumulator holds: 4 * mega_index_y
+
+  ; now let's add mega_index_x to the accumulator
+  CLC
+  ADC mega_index_x
+  STA map_offset_index
+
+  ; load the byte at map_offset_index from the current map (check which background you are displaying)
+  
+  ; HARD CODED TO ONLY CHECK FOR MAP 1
+  LDX map_offset_index
+  LDA background_stage_1_part_1, X
+  STA current_byte_of_tiles ; holds the byte of tiles from the map that we are in.
+
+
+  ; calculate amt_double_left_shifts
+  ; amt_double_left_shifts = (sprite_collisions_x % 64) // 16
+
+  ; to perform mod 64, do an AND operation with 63
+  LDA sprite_collisions_x
+  AND #%00111111 ; 63 in decimal
+
+  ;accumulator holds: sprite_collisions_x % 64
+  ; now divide by 16 (shift right 4 times)
+      LSR A
+      LSR A
+      LSR A
+      LSR A
+  STA amt_double_left_shifts
+
+  
+  ; compare with zero to see if we skip the double left shifts
+  CMP #$00
+  BEQ finished_double_left_shifts
+
+ ; perform double left shifts on current_byte_of_tiles
+  double_left_shifts_loop:
+    ASL current_byte_of_tiles
+    ASL current_byte_of_tiles
+
+    DEC amt_double_left_shifts
+    ; load amt_double_left_shifts to accumulator and compare to zero
+    LDA amt_double_left_shifts
+    CMP #$00
+    BNE double_left_shifts_loop
+
+
+  finished_double_left_shifts:
+
+  ; now we must place the leftmost two bits (most significant two bits) from current_byte_of_tiles into the tile_to_display (we are not going to display this tile)
+  LDA #$00
+  sta tile_to_display ; set tile_to_display to be zero
+
+  ASL current_byte_of_tiles ; place 7th bit of current_byte_of_tiles in CARRY flag and place a 0 in the current_byte_of_tiles (shift left)
+  ROL tile_to_display ; rotate left the carry flag onto tile_to_display : C <- 7 6 5 4 3 2 1 0 <- C
+  ASL current_byte_of_tiles ; C <- 7 6 5 4 3 2 1 0 <- 0
+  ROL tile_to_display
+
+
+  ; at this point: tile_to_display holds the tile that the sprite_collisions_x and y are currently standing on.
+  ; must check if player 'walk' over the tile held at tile_to_display
+
+  ; player can walk over tiles: 00 and 01
+  ; player CANNOT walk over tile: 10 and 11
+
+  ; basically, if second bit from right to left is zero, then player is NOT colliding
+
+  ; perform AND with mask that holds #%10 and if result is zero, then you can walk over it
+  LDA tile_to_display
+  AND #%00000010
+  BEQ set_colliding_to_false
+
+  ; set colliding to TRUE since AND with mask was NOT ZERO
+  LDA #$01
+  STA is_colliding
+  jmp exit_check_collisions
+
+  set_colliding_to_false:
+    LDA #$00
+    sta is_colliding
+  
+  exit_check_collisions:
+
+  PLA
   TAY
   PLA
   TAX
