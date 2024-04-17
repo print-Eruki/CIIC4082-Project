@@ -47,9 +47,9 @@ vblankwait2:
   STA flag_scroll
 
 ; set x, y coords for player_1
-  LDA #$50
+  LDA #$00
   STA player_1_x
-  LDA #$70
+  LDA #$BF
   STA player_1_y
   JMP main
 .endproc
