@@ -50,7 +50,17 @@ flag_scroll: .res 1 ; used to know when to write on ppuscroll
   BNE skip_change_background
     ; LDA #$02
     ; STA current_stage
-    LDA #$00
+
+    player_position_stage_2:
+      LDA #31
+      STA player_1_y; 
+      STA current_player_y
+      LDA #$00
+      STA player_1_x; 
+      STA current_player_x 
+
+
+
     LDA current_stage 
     EOR #%11
     STA current_stage
@@ -555,7 +565,7 @@ done:
   STA choose_sprite_orientation 
 
   LDA player_1_y; Y-Coordinate
-  sta current_player_y
+  STA current_player_y
   LDA player_1_x; X coordinate
   STA current_player_x 
   JSR draw_player
