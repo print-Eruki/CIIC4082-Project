@@ -1,7 +1,7 @@
 .include "constants.inc"
 
 .segment "ZEROPAGE"
-.importzp sprite_offset, player_1_x, player_1_y, tick_count, current_background_map, choose_sprite_orientation, wings_flap_state, player_direction, scroll, flag_scroll
+.importzp sprite_offset,is_behind_bush, player_1_x, player_1_y, tick_count, current_background_map, choose_sprite_orientation, wings_flap_state, player_direction, scroll, flag_scroll
 
 .segment "CODE"
 .import main
@@ -46,6 +46,7 @@ vblankwait2:
   STA scroll
   STA flag_scroll
   STA current_background_map
+  STA is_behind_bush
 
 ; set x, y coords for player_1
   LDA #$50

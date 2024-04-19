@@ -32,7 +32,9 @@ map_offset_index: .res 1
 amt_double_left_shifts: .res 1
 is_colliding: .res 1
 current_background_map: .res 1
-.exportzp sprite_offset, choose_sprite_orientation, player_1_x, player_1_y, tick_count, wings_flap_state, player_direction, scroll, flag_scroll, current_background_map
+is_behind_bush: .res 1
+is_checking_for_bush_transparency_flag: .res 1 ; flag that is set BEFORE calling check_collisions to see if we set transparency or not
+.exportzp sprite_offset, is_behind_bush, choose_sprite_orientation, player_1_x, player_1_y, tick_count, wings_flap_state, player_direction, scroll, flag_scroll, current_background_map
 
 .segment "CODE"
 .proc irq_handler
@@ -49,8 +51,20 @@ current_background_map: .res 1
  
   JSR update_tick_count ;Handle the update tick (resetting to zero or incrementing)
 
+  LDA #$00
+  sta is_checking_for_bush_transparency_flag ; NOT checking for behind bush
   JSR read_controller ; reads the controller and changes the player's location accordingly
 
+  LDA #$01
+  STA is_checking_for_bush_transparency_flag
+  lda player_1_x
+
+  STA sprite_collisions_x
+
+  LDA player_1_y
+
+  STA sprite_collisions_y
+  JSR check_collisions ; this check collisions is just to see if you are behind a bush or not
   JSR update ; draws the player on the screen
 
   LDA change_background_flag
@@ -151,9 +165,6 @@ sta current_stage
 ; preguntart en que stage tu estas
 ; choose_which background = 0
 JSR display_stage_background
-
-
-
 
 vblankwait:       ; wait for another vblank before continuing
   BIT PPUSTATUS
@@ -898,12 +909,22 @@ RTS
   ADC #$04; bottom right
   STA $020d, X
   ; store attributes
+
+  ; here we must decide if we want the sprite to be transparent or not.
+  LDA is_behind_bush
+  CMP #$01
+  BNE load_behind_bush_attributes
 ; use palette 0
   LDA #$00
-  STA $0202, X
-  STA $0206, X
-  STA $020a, X
-  STA $020e, X
+  JMP set_sprite_attributes
+  load_behind_bush_attributes:
+    LDA #%00100000
+
+  set_sprite_attributes:
+    STA $0202, X
+    STA $0206, X
+    STA $020a, X
+    STA $020e, X
 
 
   ; store tile locations
@@ -1083,6 +1104,27 @@ RTS
   ROL tile_to_display ; rotate left the carry flag onto tile_to_display : C <- 7 6 5 4 3 2 1 0 <- C
   ASL current_byte_of_tiles ; C <- 7 6 5 4 3 2 1 0 <- 0
   ROL tile_to_display
+
+  LDA is_checking_for_bush_transparency_flag
+  CMP #$00
+  Beq finish_checking_for_bush
+  ; check if you are colliding with a bush to turn on flag
+  
+  LDA tile_to_display
+  CMP #$01 ; bush in stage 1 is tile 01
+  BNE not_in_bush
+
+
+  behind_bush:
+    LDA #$01
+    sta is_behind_bush
+    JMP finish_checking_for_bush
+
+  not_in_bush:
+    LDA #$00
+    STA is_behind_bush
+
+  finish_checking_for_bush:
 
 
   ; at this point: tile_to_display holds the tile that the sprite_collisions_x and y are currently standing on.
