@@ -31,7 +31,8 @@ mega_index_y: .res 1
 map_offset_index: .res 1
 amt_double_left_shifts: .res 1
 is_colliding: .res 1
-.exportzp sprite_offset, choose_sprite_orientation, player_1_x, player_1_y, tick_count, wings_flap_state, player_direction, scroll, flag_scroll
+current_background_map: .res 1
+.exportzp sprite_offset, choose_sprite_orientation, player_1_x, player_1_y, tick_count, wings_flap_state, player_direction, scroll, flag_scroll, current_background_map
 
 .segment "CODE"
 .proc irq_handler
@@ -62,6 +63,12 @@ is_colliding: .res 1
     EOR #%11
     STA current_stage
 
+    ; update which map we are currently in (swaps to 0 or 2 always)
+  LDA current_background_map
+  AND #%10 ; turn off the right most bit. 
+  EOR #%10 ; this should make it swap from zero to 2 or from 2 to zero
+  STA current_background_map
+
     jsr display_stage_background
     lda #$00
     sta change_background_flag
@@ -75,15 +82,36 @@ is_colliding: .res 1
 
   skip_change_background:
 
-  LDA flag_scroll
-  CMP #$00
-  BEQ skip_ppuscroll_write
+  check_scrolling_flag:
 
-  INC scroll
-  LDA scroll
-  BNE skip_scroll_reset
-    LDA #255
-    STA scroll 
+    LDA flag_scroll
+    CMP #$00
+    BEQ skip_ppuscroll_write
+
+    INC scroll
+    LDA scroll
+    BNE skip_scroll_reset
+      LDA current_background_map
+      CMP #$00
+      BNE check_for_map_2
+        lda #$01
+        sta current_background_map
+      check_for_map_2:
+        LDA current_background_map
+        CMP #$02
+        BNE exit_checking_for_map
+          lda #$03
+          STA current_background_map
+
+
+
+     
+      exit_checking_for_map:
+      ; STA current_background_map
+      LDA #255 ; ponerlo en 255 para que enseñe el otro nametable (el de la derecha0)
+      STA scroll 
+    
+
   
   skip_scroll_reset:
   STA PPUSCROLL ; $2005 IS PPU SCROLL, it takes two writes: X Scroll , Y Scroll
@@ -964,7 +992,47 @@ RTS
   
   ; HARD CODED TO ONLY CHECK FOR MAP 1
   LDX map_offset_index
-  LDA background_stage_1_part_1, X
+
+  ; here we check for which map we are in to load the correct one.
+  ; current_map:
+  ; 0 - stage 1 part 1
+  ; 1 - stage 1 part 2
+  ; 2 - stage 2 part 1
+  ; 3 - stage 2 part 2
+  LDA current_background_map
+  CMP #$00
+  BNE check_map_stage_1_part_2
+
+    LDA background_stage_1_part_1, X
+
+     JMP exit_map_check
+
+  check_map_stage_1_part_2:
+    LDA current_background_map
+    CMP #$01
+    BNE check_map_stage_2_part_1
+
+    LDA background_stage_1_part_2, X
+      JMP exit_map_check
+
+  check_map_stage_2_part_1:
+    LDA current_background_map
+    CMP #$02
+    BNE check_map_stage_2_part_2
+
+  LDA background_stage_2_part_1, X  
+  jmp exit_map_check
+
+  check_map_stage_2_part_2:
+    LDA current_background_map
+    CMP #$03
+    BNE exit_map_check
+
+    LDA background_stage_2_part_2, X
+
+
+  exit_map_check:
+
   STA current_byte_of_tiles ; holds the byte of tiles from the map that we are in.
 
 
