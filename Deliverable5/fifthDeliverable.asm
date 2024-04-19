@@ -91,12 +91,17 @@ current_background_map: .res 1
     INC scroll
     LDA scroll
     BNE skip_scroll_reset
+
+    ; determine if you are in map 0 or map 2
+  
+  ; if you are in map 0, this CONSTANTLY WRITES 1 to the current_background_map var 
       LDA current_background_map
       CMP #$00
       BNE check_for_map_2
         lda #$01
         sta current_background_map
       check_for_map_2:
+  ; if you are in map 2, this CONSTANTLY WRITES 3 to the current_background_map var
         LDA current_background_map
         CMP #$02
         BNE exit_checking_for_map
