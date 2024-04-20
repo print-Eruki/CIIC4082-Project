@@ -911,9 +911,9 @@ RTS
   ; store attributes
 
   ; here we must decide if we want the sprite to be transparent or not.
-  LDA is_behind_bush
+  LDA tile_to_display ;this was changed to check for tile_to_display instead of is_behind_bush (reducing a var and some minor checks problem still persists)
   CMP #$01
-  BNE load_behind_bush_attributes
+  BEQ load_behind_bush_attributes
 ; use palette 0
   LDA #$00
   JMP set_sprite_attributes
