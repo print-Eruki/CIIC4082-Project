@@ -1,7 +1,7 @@
-second_map_part2:
+bin/second_map_part2:
     .byte $aa,$aa,$aa,$aa
-    .byte $bf,$03,$00,$32
-    .byte $00,$30,$33,$32
+    .byte $00,$03,$00,$32
+    .byte $b0,$30,$33,$32
     .byte $b0,$df,$f7,$32
     .byte $83,$70,$37,$32
     .byte $8c,$c3,$37,$56
