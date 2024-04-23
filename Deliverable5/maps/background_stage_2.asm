@@ -17,8 +17,8 @@ background_stage_2_part_1:
 
 background_stage_2_part_2:
     .byte $aa,$aa,$aa,$aa
-    .byte $bf,$03,$00,$32
-    .byte $00,$30,$33,$32
+    .byte $3f,$03,$00,$32
+    .byte $80,$30,$33,$32
     .byte $b0,$df,$f7,$32
     .byte $83,$70,$37,$32
     .byte $8c,$c3,$37,$56

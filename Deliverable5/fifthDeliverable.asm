@@ -90,7 +90,7 @@ is_checking_for_bush_transparency_flag: .res 1 ; flag that is set BEFORE calling
     sta change_background_flag
     
     reset_scrolling:
-      
+      LDA #$00
       STA scroll          ; reset scroll acumulator
       STA flag_scroll     ; reset scroll flag
       STA PPUSCROLL       ; PPUSCROLL_X = 0
@@ -103,10 +103,24 @@ is_checking_for_bush_transparency_flag: .res 1 ; flag that is set BEFORE calling
     LDA flag_scroll
     CMP #$00
     BEQ skip_ppuscroll_write
+    ;Load player x and check if we need to skip the decrease
+    LDA player_1_x
+    CMP #$01
+    BEQ skip_player_x_dec
+    
+    DEC player_1_x
+
+    skip_player_x_dec:
 
     INC scroll
     LDA scroll
-    BNE skip_scroll_reset
+    CMP #255
+    BNE skip_clearing_scrolling_flag
+    
+    LDA #$00
+    STA flag_scroll
+
+    skip_clearing_scrolling_flag:
 
     ; determine if you are in map 0 or map 2
   
@@ -129,15 +143,11 @@ is_checking_for_bush_transparency_flag: .res 1 ; flag that is set BEFORE calling
      
       exit_checking_for_map:
       ; STA current_background_map
-      LDA #255 ; ponerlo en 255 para que enseñe el otro nametable (el de la derecha0)
-      STA scroll 
-    
-
-  
-  skip_scroll_reset:
-  STA PPUSCROLL ; $2005 IS PPU SCROLL, it takes two writes: X Scroll , Y Scroll
-  LDA #$00      ; writing 00 to y, so that the next time we write to ppuscroll we write to the x
-  STA PPUSCROLL
+      ; LDA #255 ; ponerlo en 255 para que enseñe el otro nametable (el de la derecha0)
+      LDA scroll
+      STA PPUSCROLL
+      LDA #$00
+      STA PPUSCROLL
 
   skip_ppuscroll_write: ;Skip writing the ppuscroll until the player presses
 
@@ -616,6 +626,15 @@ done:
 .endproc
 
 .proc read_controller
+  ;skip controller read when we are scrolling to the stage part 2
+  LDA flag_scroll
+  CMP #$00
+  BEQ begin_read_controller
+
+  RTS
+
+  begin_read_controller:
+
   LDA #1
   STA controller_read_output ; store it with 1 so that when that 1 gets passed to the carry flag after 8 left shifts, we can break out of the loop
 
@@ -857,6 +876,8 @@ ReadDown:
   STA player_direction
 
 ReadDownDone:
+
+read_controller_done:
 
 RTS
 .endproc
