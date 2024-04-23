@@ -23,7 +23,6 @@ current_stage: .res 1 ; 1 -> stage 1 | 2 -> stage 2
 ppuctrl_settings: .res 1
 change_background_flag: .res 1
 scroll: .res 1 ;used to increment the PPUSCROLL register
-flag_scroll: .res 1 ; used to know when to write on ppuscroll
 sprite_collisions_x: .res 1
 sprite_collisions_y: .res 1
 mega_index_x: .res 1
@@ -34,7 +33,7 @@ is_colliding: .res 1
 current_background_map: .res 1
 is_behind_bush: .res 1
 is_checking_for_bush_transparency_flag: .res 1 ; flag that is set BEFORE calling check_collisions to see if we set transparency or not
-.exportzp sprite_offset, is_behind_bush, choose_sprite_orientation, player_1_x, player_1_y, tick_count, wings_flap_state, player_direction, scroll, flag_scroll, current_background_map
+.exportzp sprite_offset, is_behind_bush, choose_sprite_orientation, player_1_x, player_1_y, tick_count, wings_flap_state, player_direction, scroll, current_background_map
 
 .segment "CODE"
 .proc irq_handler
@@ -90,21 +89,10 @@ is_checking_for_bush_transparency_flag: .res 1 ; flag that is set BEFORE calling
     reset_scrolling:
       
       STA scroll          ; reset scroll acumulator
-      STA flag_scroll     ; reset scroll flag
       STA PPUSCROLL       ; PPUSCROLL_X = 0
       STA PPUSCROLL       ; PPUSCROLL_Y = 0
 
   skip_change_background:
-
-  check_scrolling_flag:
-
-    LDA flag_scroll
-    CMP #$00
-    BEQ skip_ppuscroll_write
-
-    INC scroll
-    LDA scroll
-    BNE skip_scroll_reset
 
     ; determine if you are in map 0 or map 2
   
@@ -126,18 +114,6 @@ is_checking_for_bush_transparency_flag: .res 1 ; flag that is set BEFORE calling
 
      
       exit_checking_for_map:
-      ; STA current_background_map
-      LDA #255 ; ponerlo en 255 para que enseñe el otro nametable (el de la derecha0)
-      STA scroll 
-    
-
-  
-  skip_scroll_reset:
-  STA PPUSCROLL ; $2005 IS PPU SCROLL, it takes two writes: X Scroll , Y Scroll
-  LDA #$00      ; writing 00 to y, so that the next time we write to ppuscroll we write to the x
-  STA PPUSCROLL
-
-  skip_ppuscroll_write: ;Skip writing the ppuscroll until the player presses
 
   RTI
 .endproc
@@ -652,20 +628,17 @@ ReadA:
 ReadB: 
   LDA controller_read_output
   AND #%01000000 
-  BEQ ReadBDone
-
-  LDA #$01
-  STA flag_scroll  
+  BEQ ReadBDone 
 
   ReadBDone:
 
 ; Reads the right arrow key to turn right
-ReadRightArrowKey: ; en el original NES controller, la A está a la derecha así que la "S" en el teclado es la A
+ReadRight: ; en el original NES controller, la A está a la derecha así que la "S" en el teclado es la A
 
   LDA controller_read_output
   AND #%00000001 ; BIT MASK to look if accumulator holds a value different than 0 after performing the AND
   ; here we are checking to see if the A was pressed
-  BEQ ReadRightArrowKeyDone
+  BEQ ReadRight
   
   ; check for collisions on top right side: player_x + 15, player_y + 3
   lda player_1_x
@@ -682,7 +655,7 @@ ReadRightArrowKey: ; en el original NES controller, la A está a la derecha así
 
   LDA is_colliding
   CMP #$01
-  BEQ ReadRightArrowKeyDone
+  BEQ ReadRight
 
   ; check for collisions on bottom right side: player_x + 15, player_y + 14
   
@@ -697,7 +670,7 @@ ReadRightArrowKey: ; en el original NES controller, la A está a la derecha así
 
   LDA is_colliding
   CMP #$01
-  BEQ ReadRightArrowKeyDone 
+  BEQ ReadRight 
 
 
     ; if A is pressed, move sprite to the right
@@ -708,7 +681,7 @@ ReadRightArrowKey: ; en el original NES controller, la A está a la derecha así
     LDA #$10
     STA player_direction
 
-  ReadRightArrowKeyDone:
+  ReadRight:
 
 
 ; ; reads the left arrow key to turn left
