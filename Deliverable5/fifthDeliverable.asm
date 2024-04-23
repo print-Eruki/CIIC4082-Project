@@ -34,7 +34,8 @@ is_colliding: .res 1
 current_background_map: .res 1
 is_behind_bush: .res 1
 is_checking_for_bush_transparency_flag: .res 1 ; flag that is set BEFORE calling check_collisions to see if we set transparency or not
-.exportzp sprite_offset, is_behind_bush, choose_sprite_orientation, player_1_x, player_1_y, tick_count, wings_flap_state, player_direction, scroll, flag_scroll, current_background_map
+is_stage_part_2: .res 1 ;flag that is set AFTER reaching part two of a stage.
+.exportzp sprite_offset, is_behind_bush, choose_sprite_orientation, player_1_x, player_1_y, tick_count, wings_flap_state, player_direction, scroll, flag_scroll, current_background_map, is_stage_part_2
 
 .segment "CODE"
 .proc irq_handler
@@ -74,6 +75,22 @@ is_checking_for_bush_transparency_flag: .res 1 ; flag that is set BEFORE calling
   BNE skip_change_background
     ; LDA #$02
     ; STA current_stage
+
+    reset_flags_player_x_player_y:
+      ;LOAD the initial starting positions for stage 2
+      LDA #31
+      STA player_1_y; 
+      STA current_player_y
+      LDA #$00
+      STA player_1_x; 
+      STA current_player_x
+
+      ;RESET flags 
+      LDA #$00
+      STA flag_scroll  ;just in case for some reason this is set
+      STA is_stage_part_2  ; Reseting 
+
+
     LDA #$00
     LDA current_stage 
     EOR #%11
@@ -107,7 +124,7 @@ is_checking_for_bush_transparency_flag: .res 1 ; flag that is set BEFORE calling
     LDA player_1_x
     CMP #$01
     BEQ skip_player_x_dec
-    
+
     DEC player_1_x
 
     skip_player_x_dec:
@@ -675,18 +692,15 @@ ReadB:
   AND #%01000000 
   BEQ ReadBDone
 
-  LDA #$01
-  STA flag_scroll  
-
   ReadBDone:
 
 ; Reads the right arrow key to turn right
-ReadRightArrowKey: ; en el original NES controller, la A está a la derecha así que la "S" en el teclado es la A
+ReadRight: ; en el original NES controller, la A está a la derecha así que la "S" en el teclado es la A
 
   LDA controller_read_output
   AND #%00000001 ; BIT MASK to look if accumulator holds a value different than 0 after performing the AND
   ; here we are checking to see if the A was pressed
-  BEQ ReadRightArrowKeyDone
+  BEQ ReadRightDone
   
   ; check for collisions on top right side: player_x + 15, player_y + 3
   lda player_1_x
@@ -703,7 +717,7 @@ ReadRightArrowKey: ; en el original NES controller, la A está a la derecha así
 
   LDA is_colliding
   CMP #$01
-  BEQ ReadRightArrowKeyDone
+  BEQ ReadRightDone
 
   ; check for collisions on bottom right side: player_x + 15, player_y + 14
   
@@ -718,7 +732,7 @@ ReadRightArrowKey: ; en el original NES controller, la A está a la derecha así
 
   LDA is_colliding
   CMP #$01
-  BEQ ReadRightArrowKeyDone 
+  BEQ ReadRightDone 
 
 
     ; if A is pressed, move sprite to the right
@@ -729,7 +743,30 @@ ReadRightArrowKey: ; en el original NES controller, la A está a la derecha así
     LDA #$10
     STA player_direction
 
-  ReadRightArrowKeyDone:
+    ;check if the player has reached the end of the screen and/or part
+    LDA player_1_x
+    CMP #241
+    BEQ set_scroll_flag  ;BRANCH if it's exactly 241
+    BCS set_scroll_flag  ;BRANCH if it's greater than 241
+    
+    JMP ReadRightDone    ;SKIP if we dont need to set the scroll flag just yet
+
+    set_scroll_flag:
+      ;first check if we reach the end of stage part 2
+      LDA is_stage_part_2
+      CMP #$01
+      BEQ go_to_next_stage
+
+      LDA #$01
+      STA flag_scroll
+      STA is_stage_part_2
+      JMP ReadRightDone ; skip stage change but CONTINUE reading the other buttons
+
+      go_to_next_stage:
+        lda #$01
+        sta change_background_flag
+
+  ReadRightDone:
 
 
 ; ; reads the left arrow key to turn left
