@@ -13,7 +13,6 @@ def read_bin(file):
             map_bytes.pop()
             map_bytes.pop()
             map_bytes = clean_map(map_bytes)
-            print(map_bytes)
             return (map_bytes, attributes_table)
     
 def clean_map(matrix):
