@@ -58,11 +58,13 @@ is_checking_for_bush_transparency_flag: .res 1 ; flag that is set BEFORE calling
   LDA #$01
   STA is_checking_for_bush_transparency_flag
   lda player_1_x
-
+  clc 
+  adc #$08
   STA sprite_collisions_x
 
   LDA player_1_y
-
+  clc 
+  adc #$08
   STA sprite_collisions_y
   JSR check_collisions ; this check collisions is just to see if you are behind a bush or not
   JSR update ; draws the player on the screen
@@ -911,7 +913,7 @@ RTS
   ; store attributes
 
   ; here we must decide if we want the sprite to be transparent or not.
-  LDA tile_to_display ;this was changed to check for tile_to_display instead of is_behind_bush (reducing a var and some minor checks problem still persists)
+  LDA is_behind_bush ;this was changed to check for tile_to_display instead of is_behind_bush (reducing a var and some minor checks problem still persists)
   CMP #$01
   BEQ load_behind_bush_attributes
 ; use palette 0
