@@ -38,8 +38,8 @@ is_stage_part_2: .res 1 ;flag that is set AFTER reaching part two of a stage.
 timer_first_digit: .res 1 ; timer first digit from left to right let number = 250 then (2)50
 timer_second_digit: .res 1 ; timer second digit from left to right let number = 250 then 2(5)0
 timer_third_digit: .res 1 ; timer third digit from left to right let number = 250 then 25(0)
-
-.exportzp sprite_offset, is_behind_bush, choose_sprite_orientation, player_1_x, player_1_y, tick_count, wings_flap_state, player_direction, scroll, flag_scroll, current_background_map, is_stage_part_2, timer_first_digit, timer_second_digit, timer_third_digit
+is_game_over: .res 1 ; flag that is set if the player runs out of time (player loses)
+.exportzp sprite_offset, is_behind_bush, choose_sprite_orientation, player_1_x, player_1_y, tick_count, wings_flap_state, player_direction, scroll, flag_scroll, current_background_map, is_stage_part_2, timer_first_digit, timer_second_digit, timer_third_digit, is_game_over
 
 
 .segment "CODE"
@@ -621,6 +621,7 @@ RTS
 reset_tick:
   LDA #$00             ; Load A with 0
   STA tick_count       ; Reset tick_count to 0 
+  DEC timer_third_digit
   STA wings_flap_state    
   RTS
 
@@ -1108,8 +1109,30 @@ RTS
   TYA
   PHA
   ;Before drawing the sprite we need to update
+  check_if_timer_finished:
+    LDA timer_first_digit
+    CLC
+    ADC timer_second_digit
+    ADC timer_third_digit
+    CMP #$00
+    BNE skip_set_game_over_flag
+
+    LDA #$01
+    STA is_game_over
+    LDA #$01
+    STA timer_first_digit
+
+    skip_set_game_over_flag:
+
   Update_timer:
-    
+    LDA timer_third_digit
+    BMI reset_third_digit_dec_second_digit
+    JMP end_update_timer
+
+    reset_third_digit_dec_second_digit:
+      LDA #$09
+      STA timer_third_digit
+      DEC timer_second_digit
 
 
   end_update_timer:
