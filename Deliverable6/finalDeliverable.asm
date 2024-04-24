@@ -35,7 +35,12 @@ current_background_map: .res 1
 is_behind_bush: .res 1
 is_checking_for_bush_transparency_flag: .res 1 ; flag that is set BEFORE calling check_collisions to see if we set transparency or not
 is_stage_part_2: .res 1 ;flag that is set AFTER reaching part two of a stage.
-.exportzp sprite_offset, is_behind_bush, choose_sprite_orientation, player_1_x, player_1_y, tick_count, wings_flap_state, player_direction, scroll, flag_scroll, current_background_map, is_stage_part_2
+timer_first_digit: .res 1 ; timer first digit from left to right let number = 250 then (2)50
+timer_second_digit: .res 1 ; timer second digit from left to right let number = 250 then 2(5)0
+timer_third_digit: .res 1 ; timer third digit from left to right let number = 250 then 25(0)
+
+.exportzp sprite_offset, is_behind_bush, choose_sprite_orientation, player_1_x, player_1_y, tick_count, wings_flap_state, player_direction, scroll, flag_scroll, current_background_map, is_stage_part_2, timer_first_digit, timer_second_digit, timer_third_digit
+
 
 .segment "CODE"
 .proc irq_handler
@@ -244,7 +249,7 @@ forever:
   PHA
 
   disable_rendering:
-    LDA #%00000000  ; turning off backgrounds not sprites
+    LDA #%00000000  ; turning off backgrounds and sprites
     STA PPUMASK
 
     
@@ -639,6 +644,8 @@ done:
   LDA player_1_x; X coordinate
   STA current_player_x 
   JSR draw_player
+  JSR draw_timer
+
   RTS
 .endproc
 
@@ -918,6 +925,7 @@ read_controller_done:
 
 RTS
 .endproc
+
 .proc draw_player
 ; save registers
 
@@ -1034,6 +1042,91 @@ RTS
   PLP
   RTS
 .endproc
+
+.proc draw_digits
+  PHP
+  PHA
+  TXA
+  PHA
+  TYA
+  PHA
+  ;;Draw first digit
+  
+  LDX #$40
+  LDA #2
+  STA $0200, X ; Y-coord of first sprite
+  LDA timer_first_digit
+  CLC
+  ADC #$40
+  STA $0201, X; tile number of first sprite
+  LDA #$00
+  STA $0202, X ; attributes of first sprite
+  LDA #210
+  STA $0203, X ; X-coord of first sprite
+
+  ;; Draw second number
+  LDX #$50
+  LDA #2
+  STA $0200, X ; Y-coord of first sprite
+  LDA timer_second_digit
+  CLC
+  ADC #$40
+  STA $0201, X; tile number of first sprite
+  LDA #$00
+  STA $0202, X ; attributes of first sprite
+  LDA #219
+  STA $0203, X ; X-coord of first sprite
+
+  ;; Draw third number
+  LDX #$60
+  LDA #2
+  STA $0200, X ; Y-coord of first sprite
+  LDA timer_third_digit
+  CLC
+  ADC #$40
+  STA $0201, X; tile number of first sprite
+  LDA #$00
+  STA $0202, X ; attributes of first sprite
+  LDA #228
+  STA $0203, X ; X-coord of first sprite
+
+
+  PLA
+  TAY
+  PLA
+  TAX
+  PLA
+  PLP
+  RTS
+.endproc
+
+.proc draw_timer
+  PHP
+  PHA
+  TXA
+  PHA
+  TYA
+  PHA
+  ;Before drawing the sprite we need to update
+  Update_timer:
+    
+
+
+  end_update_timer:
+
+  draw_first_digit:
+    JSR draw_digits
+
+
+  PLA
+  TAY
+  PLA
+  TAX
+  PLA
+  PLP
+  RTS
+.endproc
+
 
 .proc check_collisions
   PHP
