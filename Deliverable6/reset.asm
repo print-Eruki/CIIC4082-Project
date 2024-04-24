@@ -51,11 +51,11 @@ vblankwait2:
   STA is_game_over
   
   ;LOAD timer initial time
-  LDA #$00
+  LDA #$01
   STA timer_first_digit
-  LDA #5
+  LDA #0
   STA timer_second_digit
-  LDA #9
+  LDA #3
   STA timer_third_digit
 
   ;INITIAL TIMER IS SET TO 059

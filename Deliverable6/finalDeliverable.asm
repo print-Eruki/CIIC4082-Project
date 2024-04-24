@@ -38,6 +38,9 @@ is_stage_part_2: .res 1 ;flag that is set AFTER reaching part two of a stage.
 timer_first_digit: .res 1 ; timer first digit from left to right let number = 250 then (2)50
 timer_second_digit: .res 1 ; timer second digit from left to right let number = 250 then 2(5)0
 timer_third_digit: .res 1 ; timer third digit from left to right let number = 250 then 25(0)
+stage_1_first_digit: .res 1 
+stage_1_second_digit: .res 1 
+stage_1_third_digit: .res 1 
 is_game_over: .res 1 ; flag that is set if the player runs out of time (player loses)
 .exportzp sprite_offset, is_behind_bush, choose_sprite_orientation, player_1_x, player_1_y, tick_count, wings_flap_state, player_direction, scroll, flag_scroll, current_background_map, is_stage_part_2, timer_first_digit, timer_second_digit, timer_third_digit, is_game_over
 
@@ -89,6 +92,16 @@ is_game_over: .res 1 ; flag that is set if the player runs out of time (player l
       LDA #$00
       STA player_1_x; 
       STA current_player_x
+    
+    reset_new_timer_save_player_time:
+      LDA #$01
+      STA timer_first_digit
+      LDA #$05
+      STA timer_second_digit
+      LDA #$09
+      STA timer_third_digit
+
+    
 
       ;RESET flags 
       LDA #$00
@@ -1126,19 +1139,26 @@ RTS
 
   Update_timer:
     LDA timer_third_digit
-    BMI reset_third_digit_dec_second_digit
+    BMI reset_third_digit_dec_second_digit ;;Branch if minus -> this will branch if the number is negative
     JMP end_update_timer
 
     reset_third_digit_dec_second_digit:
       LDA #$09
       STA timer_third_digit
       DEC timer_second_digit
-
+      LDA timer_second_digit
+      BMI reset_second_digit_dec_first_digit
+      JMP end_update_timer
+      
+    
+    reset_second_digit_dec_first_digit:
+      LDA #$09
+      STA timer_second_digit
+      DEC timer_first_digit
 
   end_update_timer:
 
-  draw_first_digit:
-    JSR draw_digits
+  JSR draw_digits 
 
 
   PLA
