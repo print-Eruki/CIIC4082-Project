@@ -1,7 +1,7 @@
 .include "constants.inc"
 
 .segment "ZEROPAGE"
-.importzp sprite_offset, is_behind_bush, player_1_x, player_1_y, tick_count, current_background_map, choose_sprite_orientation, wings_flap_state, player_direction, scroll, flag_scroll, is_stage_part_2, timer_first_digit, timer_second_digit, timer_third_digit, is_game_over
+.importzp sprite_offset, is_behind_bush, player_1_x, player_1_y, tick_count, current_background_map, choose_sprite_orientation, wings_flap_state, player_direction, scroll, flag_scroll, is_stage_part_2, timer_first_digit, timer_second_digit, timer_third_digit, is_game_over, is_stage_cleared
 
 .segment "CODE"
 .import main
@@ -49,11 +49,12 @@ vblankwait2:
   STA is_behind_bush
   STA is_stage_part_2
   STA is_game_over
+  STA is_stage_cleared
   
   ;LOAD timer initial time
-  LDA #$01
+  LDA #$00
   STA timer_first_digit
-  LDA #0
+  LDA #00
   STA timer_second_digit
   LDA #3
   STA timer_third_digit

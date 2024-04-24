@@ -41,8 +41,9 @@ timer_third_digit: .res 1 ; timer third digit from left to right let number = 25
 stage_1_first_digit: .res 1 
 stage_1_second_digit: .res 1 
 stage_1_third_digit: .res 1 
-is_game_over: .res 1 ; flag that is set if the player runs out of time (player loses)
-.exportzp sprite_offset, is_behind_bush, choose_sprite_orientation, player_1_x, player_1_y, tick_count, wings_flap_state, player_direction, scroll, flag_scroll, current_background_map, is_stage_part_2, timer_first_digit, timer_second_digit, timer_third_digit, is_game_over
+is_game_over: .res 1 ; flag that is SET if the player runs out of time (player loses)
+is_stage_cleared: .res 1 ; flag that is SET if the player cleares both stages
+.exportzp sprite_offset, is_behind_bush, choose_sprite_orientation, player_1_x, player_1_y, tick_count, wings_flap_state, player_direction, scroll, flag_scroll, current_background_map, is_stage_part_2, timer_first_digit, timer_second_digit, timer_third_digit, is_game_over, is_stage_cleared
 
 
 .segment "CODE"
@@ -59,6 +60,11 @@ is_game_over: .res 1 ; flag that is set if the player runs out of time (player l
   STA OAMDMA
  
   JSR update_tick_count ;Handle the update tick (resetting to zero or incrementing)
+
+  ;; Check if the the player is OUT of time
+  LDA is_game_over
+  CMP #$01
+  BEQ game_end
 
   LDA #$00
   sta is_checking_for_bush_transparency_flag ; NOT checking for behind bush
@@ -185,6 +191,13 @@ is_game_over: .res 1 ; flag that is set if the player runs out of time (player l
       STA PPUSCROLL
 
   skip_ppuscroll_write: ;Skip writing the ppuscroll until the player presses
+  
+  
+  RTI
+  game_end:
+    LDA #$03
+    STA current_stage
+    JSR display_stage_background
 
   RTI
 .endproc
@@ -233,6 +246,31 @@ forever:
   JMP forever
 .endproc
 
+.proc draw_stage_cleared
+  PHP
+  PHA
+  TXA
+  PHA
+  TYA
+  PHA
+          ;;40
+  LDX #$00
+  loop:
+    LDA stage_cleared, X
+    STA $2004
+    INX
+    CPX #$40
+    BNE loop
+
+  PLA
+  TAY
+  PLA
+  TAX
+  PLA
+  PLP 
+  RTS
+.endproc
+
 
 ; display_tile subroutine
 ; tile_index -> $00
@@ -252,7 +290,7 @@ forever:
 .endproc
 
 ; PARAMS
-; current_stage --> 1 for stage 1 | 2 for stage 2
+; current_stage --> 1 for stage 1 | 2 for stage 2 | 3 for game_over
 .proc display_stage_background
   PHP
   PHA
@@ -274,6 +312,9 @@ forever:
   LDA current_stage
   CMP #$02
   BEQ prep_stage_2 ; if current_stage is 2, then branch to prep for stage 2; else: jump to prep for stage 1
+  CMP #$03 
+  BEQ prep_game_over_stage
+
 
   prep_stage_1:
     ; current_stage = 1
@@ -287,6 +328,10 @@ forever:
     LDA #$02
     sta choose_which_background
 
+  prep_game_over_stage:
+    ; current_stage = game_over (3)
+    LDA #$04
+    STA choose_which_background
 
   finished_preparing:
   LDY #$00
@@ -367,8 +412,16 @@ test_for_stage_2_part_1:
     jmp background_selected
 
 test_for_stage_2_part_2:
+  CMP #$03
+  BNE test_game_over_screen ;;BLACK screen
+  
   ; at this point, this is practically an ELSE statement so it must be stage 2 part 2
     LDA background_stage_2_part_2, Y
+    JMP background_selected
+
+test_game_over_screen: ;;this is practically an ELSE statement. it will land here when choose_which_background is 4 or 5 
+  LDA black_stage, Y
+  
 
   background_selected:
   
@@ -631,12 +684,12 @@ RTS
   STA wings_flap_state
   RTS            
 
-reset_tick:
-  LDA #$00             ; Load A with 0
-  STA tick_count       ; Reset tick_count to 0 
-  DEC timer_third_digit
-  STA wings_flap_state    
-  RTS
+  reset_tick:
+    LDA #$00             ; Load A with 0
+    STA tick_count       ; Reset tick_count to 0 
+    DEC timer_third_digit
+    STA wings_flap_state    
+    RTS
 
 done:
   STA tick_count
@@ -1364,6 +1417,7 @@ RTS
 ;include stage 1 and 2 maps
 .include "maps/background_stage_1.asm"
 .include "maps/background_stage_2.asm"
+.include "maps/black.asm"
 
 palettes:
 ; Background Palettes
@@ -1386,6 +1440,17 @@ sprites:
 .byte $78, $08, $00, $88
 ; choose sprite palette number with the last 2 bits of the attribute 
 
+stage_cleared:
+  .byte $82, $50, $00, 140 ;;S 
+  .byte $82, $51, $00, 150 ;;T
+  .byte $82, $52, $00, 160 ;;A
+  .byte $82, $54, $00, 180 ;;E
+
+  .byte $82, $55, $00, 140 ;;C 
+  .byte $140, $56, $00, 150 ;;L
+  .byte $140, $54, $00, 160 ;;E
+  .byte $140, $52, $00, 170 ;;A
+  .byte $140, $57, $00, 180 ;;R
 
 .segment "CHR"
 ; .res 8192 ; reservar 8,179 bytes of empty space 
