@@ -43,6 +43,7 @@ stage_1_second_digit: .res 1
 stage_1_third_digit: .res 1 
 is_game_over: .res 1 ; flag that is SET if the player runs out of time (player loses)
 is_stage_cleared: .res 1 ; flag that is SET if the player cleares both stages
+already_in_game_over: .res 1
 .exportzp sprite_offset, is_behind_bush, choose_sprite_orientation, player_1_x, player_1_y, tick_count, wings_flap_state, player_direction, scroll, flag_scroll, current_background_map, is_stage_part_2, timer_first_digit, timer_second_digit, timer_third_digit, is_game_over, is_stage_cleared
 
 
@@ -64,8 +65,11 @@ is_stage_cleared: .res 1 ; flag that is SET if the player cleares both stages
   ;; Check if the the player is OUT of time
   LDA is_game_over
   CMP #$01
-  BEQ game_end
+  BNE skip_jump_to_game_end ; if is_game_over flag is OFF then skip the jump to game_end
 
+  JMP game_end
+
+  skip_jump_to_game_end:
   LDA #$00
   sta is_checking_for_bush_transparency_flag ; NOT checking for behind bush
   JSR read_controller ; reads the controller and changes the player's location accordingly
@@ -195,9 +199,18 @@ is_stage_cleared: .res 1 ; flag that is SET if the player cleares both stages
   
   RTI
   game_end:
+    LDA already_in_game_over
+    cmp #$01
+    BEQ skip_black_background_display
+
     LDA #$03
     STA current_stage
     JSR display_stage_background
+    LDA #$01
+    STA already_in_game_over ; flag to avoid displaying the black background in every nmi call once is_game_over is on.
+
+  skip_black_background_display:
+    JSR draw_stage_cleared
 
   RTI
 .endproc
@@ -259,7 +272,7 @@ forever:
     LDA stage_cleared, X
     STA $2004
     INX
-    CPX #$40
+    CPX #$24 ; $24
     BNE loop
 
   PLA
@@ -489,6 +502,8 @@ RTS
     ; si estas en stage 2 pues sumale 4 al tile to display
     lda current_stage
     CMP #$01
+    BEQ skip_addition_to_display
+    CMP #$03 ; check if we are in game_over to avoid adding the background tile offset of 4
     BEQ skip_addition_to_display
       ; here it's stage 2
       lda tile_to_display
@@ -1441,16 +1456,16 @@ sprites:
 ; choose sprite palette number with the last 2 bits of the attribute 
 
 stage_cleared:
-  .byte $82, $50, $00, 140 ;;S 
-  .byte $82, $51, $00, 150 ;;T
-  .byte $82, $52, $00, 160 ;;A
-  .byte $82, $54, $00, 180 ;;E
+  .byte $82, $50, $00, $8C ;;S 
+  .byte $82, $51, $00, $96 ;;T
+  .byte $80, $52, $00, $A0 ;;A
+  .byte $80, $54, $00, $B4 ;;E
 
-  .byte $82, $55, $00, 140 ;;C 
-  .byte $140, $56, $00, 150 ;;L
-  .byte $140, $54, $00, 160 ;;E
-  .byte $140, $52, $00, 170 ;;A
-  .byte $140, $57, $00, 180 ;;R
+  .byte $88, $55, $00, $8C ;;C 
+  .byte $88, $56, $00, $96 ;;L
+  .byte $88, $54, $00, $A0 ;;E
+  .byte $88, $52, $00, $AA ;;A
+  .byte $88, $57, $00, $B4 ;;R
 
 .segment "CHR"
 ; .res 8192 ; reservar 8,179 bytes of empty space 
