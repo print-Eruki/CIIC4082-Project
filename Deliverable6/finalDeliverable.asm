@@ -70,6 +70,7 @@ already_in_game_over: .res 1
   JMP game_end
 
   skip_jump_to_game_end:
+
   LDA #$00
   sta is_checking_for_bush_transparency_flag ; NOT checking for behind bush
   JSR read_controller ; reads the controller and changes the player's location accordingly
@@ -210,7 +211,15 @@ already_in_game_over: .res 1
     STA already_in_game_over ; flag to avoid displaying the black background in every nmi call once is_game_over is on.
 
   skip_black_background_display:
+    LDA is_game_over
+    CMP #$01
+    BEQ skip_stage_cleared
+    
     JSR draw_stage_cleared
+    RTI ;; DO NOT CONTINUE, IF WE ADD MORE LOGIC TO THIS ELIMINATE THIS AND ADD A BEQ INSTEAD
+
+    skip_stage_cleared:
+    JSR draw_game_over
 
   RTI
 .endproc
@@ -259,6 +268,31 @@ forever:
   JMP forever
 .endproc
 
+.proc draw_game_over
+  PHP
+  PHA
+  TXA
+  PHA
+  TYA
+  PHA
+
+  LDX #$00
+  loop:
+    LDA game_over, X
+    STA $2004
+    INX
+    CPX #$28
+    BNE loop
+
+  PLA
+  TAY
+  PLA
+  TAX
+  PLA
+  PLP 
+  RTS
+.endproc
+
 .proc draw_stage_cleared
   PHP
   PHA
@@ -272,7 +306,7 @@ forever:
     LDA stage_cleared, X
     STA $2004
     INX
-    CPX #$24 ; $24
+    CPX #$30 ; $24
     BNE loop
 
   PLA
@@ -340,6 +374,8 @@ forever:
     ; current_stage = 2
     LDA #$02
     sta choose_which_background
+    
+  JMP finished_preparing
 
   prep_game_over_stage:
     ; current_stage = game_over (3)
@@ -1456,16 +1492,36 @@ sprites:
 ; choose sprite palette number with the last 2 bits of the attribute 
 
 stage_cleared:
-  .byte $82, $50, $00, $8C ;;S 
-  .byte $82, $51, $00, $96 ;;T
+  .byte $00, $00, $00, $00 	; DO NOT MODIFY THESE
+  .byte $00, $00, $00, $00  ; DO NOT MODIFY THESE
+
+  .byte $80, $50, $00, $8C ;;S 
+  .byte $80, $51, $00, $96 ;;T
   .byte $80, $52, $00, $A0 ;;A
+  .byte $80, $53, $00, $AA ;;G
   .byte $80, $54, $00, $B4 ;;E
 
-  .byte $88, $55, $00, $8C ;;C 
-  .byte $88, $56, $00, $96 ;;L
-  .byte $88, $54, $00, $A0 ;;E
-  .byte $88, $52, $00, $AA ;;A
-  .byte $88, $57, $00, $B4 ;;R
+  .byte $90, $55, $00, $8C ;;C 
+  .byte $90, $56, $00, $96 ;;L
+  .byte $90, $54, $00, $A0 ;;E
+  .byte $90, $52, $00, $AA ;;A
+  .byte $90, $57, $00, $B4 ;;R
+
+game_over:
+  .byte $00, $00, $00, $00 	; DO NOT MODIFY THESE
+  .byte $00, $00, $00, $00  ; DO NOT MODIFY THESE
+
+  ;;59,52,5A,54
+  .byte $80, $59, $00, $8C ;;G
+  .byte $80, $52, $00, $96 ;;A
+  .byte $80, $5A, $00, $A0 ;;M
+  .byte $80, $54, $00, $AA ;;E
+
+  .byte $90, $55, $00, $8C ;;O
+  .byte $90, $5C, $00, $96 ;;V
+  .byte $90, $54, $00, $A0 ;;E
+  .byte $90, $57, $00, $AA ;;R
+
 
 .segment "CHR"
 ; .res 8192 ; reservar 8,179 bytes of empty space 
