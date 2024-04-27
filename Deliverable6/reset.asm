@@ -56,7 +56,7 @@ vblankwait2:
   STA timer_first_digit
   LDA #05
   STA timer_second_digit
-  LDA #00
+  LDA #03
   STA timer_third_digit
 
   ;INITIAL TIMER IS SET TO 059

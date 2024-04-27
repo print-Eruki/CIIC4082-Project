@@ -44,6 +44,7 @@ stage_1_third_digit: .res 1
 is_game_over: .res 1 ; flag that is SET if the player runs out of time (player loses)
 is_stage_cleared: .res 1 ; flag that is SET if the player cleares both stages
 already_in_game_over: .res 1
+final_stage: .res 1
 .exportzp sprite_offset, is_behind_bush, choose_sprite_orientation, player_1_x, player_1_y, tick_count, wings_flap_state, player_direction, scroll, flag_scroll, current_background_map, is_stage_part_2, timer_first_digit, timer_second_digit, timer_third_digit, is_game_over, is_stage_cleared
 
 
@@ -62,6 +63,26 @@ already_in_game_over: .res 1
  
   JSR update_tick_count ;Handle the update tick (resetting to zero or incrementing)
 
+  ;;check if the player finished
+  LDA final_stage
+  CMP #$01
+  BNE continue_check_game_over
+
+  LDA is_stage_part_2
+  CMP #$01
+  BNE continue_check_game_over
+
+  LDA player_1_x
+  CMP #241
+  BEQ game_finished
+  BCS game_finished
+
+  JMP continue_check_game_over
+  game_finished:
+  JMP game_end
+
+
+  continue_check_game_over:
   ;; Check if the the player is OUT of time
   LDA is_game_over
   CMP #$01
@@ -200,6 +221,7 @@ already_in_game_over: .res 1
   
   RTI
   game_end:
+
     LDA already_in_game_over
     cmp #$01
     BEQ skip_black_background_display
@@ -241,6 +263,8 @@ already_in_game_over: .res 1
     CPX #$20 ; amount of total colors in palettes
     BNE load_palettes
 
+LDA #$00
+STA final_stage
 
 lda #$01
 sta current_stage
@@ -888,8 +912,13 @@ ReadRight: ; en el original NES controller, la A está a la derecha así que la 
       JMP ReadRightDone ; skip stage change but CONTINUE reading the other buttons
 
       go_to_next_stage:
-        lda #$01
-        sta change_background_flag
+          LDA final_stage
+          CMP #$01
+          BEQ ReadRightDone
+            
+          LDA #$01
+          STA final_stage
+          STA change_background_flag
 
   ReadRightDone:
 
