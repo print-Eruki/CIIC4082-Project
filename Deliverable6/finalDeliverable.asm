@@ -1256,12 +1256,23 @@ RTS
   PHA
   ;Before drawing the sprite we need to update
   check_if_timer_finished:
-    LDA timer_first_digit
-    CLC
-    ADC timer_second_digit
-    ADC timer_third_digit
+    ; LDA timer_first_digit
+    ; CLC
+    ; ADC timer_second_digit
+    ; ADC timer_third_digit
+    ; CMP #$00
+    LDA timer_third_digit
     CMP #$00
     BNE skip_set_game_over_flag
+    
+    LDA timer_second_digit
+    CMP #$00
+    BNE skip_set_game_over_flag
+
+    LDA timer_third_digit
+    CMP #$00 
+    BNE skip_set_game_over_flag
+
 
     LDA #$01
     STA is_game_over

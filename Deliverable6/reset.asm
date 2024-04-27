@@ -54,7 +54,7 @@ vblankwait2:
   ;LOAD timer initial time
   LDA #$00
   STA timer_first_digit
-  LDA #05
+  LDA #01
   STA timer_second_digit
   LDA #03
   STA timer_third_digit
