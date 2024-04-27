@@ -45,6 +45,9 @@ is_game_over: .res 1 ; flag that is SET if the player runs out of time (player l
 is_stage_cleared: .res 1 ; flag that is SET if the player cleares both stages
 already_in_game_over: .res 1
 final_stage: .res 1
+score_first_digit: .res 1
+score_second_digit: .res 1
+score_third_digit: .res 1
 .exportzp sprite_offset, is_behind_bush, choose_sprite_orientation, player_1_x, player_1_y, tick_count, wings_flap_state, player_direction, scroll, flag_scroll, current_background_map, is_stage_part_2, timer_first_digit, timer_second_digit, timer_third_digit, is_game_over, is_stage_cleared
 
 
@@ -265,6 +268,9 @@ final_stage: .res 1
 
 LDA #$00
 STA final_stage
+STA score_first_digit
+STA score_second_digit
+STA score_third_digit
 
 lda #$01
 sta current_stage
@@ -763,12 +769,59 @@ RTS
     LDA #$00             ; Load A with 0
     STA tick_count       ; Reset tick_count to 0 
     DEC timer_third_digit
-    STA wings_flap_state    
+    STA wings_flap_state
+    ;; CHECK IF WE STOP ADDING TO THE SCORE
+    LDA already_in_game_over
+    CMP #$01
+    BEQ skip_increment
+    INC score_third_digit
+
+    skip_increment:   
+    JSR update_time_score
     RTS
 
 done:
   STA tick_count
   RTS
+.endproc
+
+.proc update_time_score
+  PHP
+  PHA
+  TXA
+  PHA
+  TYA
+  PHA
+  
+  update_score:
+    LDA score_third_digit
+    CMP #10
+    BEQ reset_third_digit_inc_second_digit ;;Branch if minus -> this will branch if the number is negative
+    JMP end_update_score
+
+    reset_third_digit_inc_second_digit:
+      LDA #$00
+      STA score_third_digit
+      INC score_second_digit
+      LDA score_second_digit
+      CMP #10
+      BEQ reset_second_digit_inc_first_digit
+      JMP end_update_score
+      
+    
+    reset_second_digit_inc_first_digit:
+      LDA #$00
+      STA score_second_digit
+      INC score_first_digit
+
+  end_update_score:
+
+  PLA
+  TAY
+  PLA
+  TAX
+  PLA
+  PLP
 .endproc
 
 .proc update
@@ -1197,46 +1250,94 @@ RTS
   PHA
   TYA
   PHA
+  ;;CHECK IF WE LOST OR WIN TO KNOW IF WE WANT TO DRAW THE TIMER OR THE SCORE
+  LDA already_in_game_over
+  CMP #$01
+  BNE draw_timer
+
+  ;;DRAW SCORE
   ;;Draw first digit
-  
-  LDX #$40
-  LDA #2
-  STA $0200, X ; Y-coord of first sprite
-  LDA timer_first_digit
-  CLC
-  ADC #$40
-  STA $0201, X; tile number of first sprite
-  LDA #$00
-  STA $0202, X ; attributes of first sprite
-  LDA #210
-  STA $0203, X ; X-coord of first sprite
+    LDX #$40
+    LDA #2
+    STA $0200, X ; Y-coord of first sprite
+    LDA score_first_digit
+    CLC
+    ADC #$40
+    STA $0201, X; tile number of first sprite
+    LDA #$00
+    STA $0202, X ; attributes of first sprite
+    LDA #210
+    STA $0203, X ; X-coord of first sprite
 
-  ;; Draw second number
-  LDX #$50
-  LDA #2
-  STA $0200, X ; Y-coord of first sprite
-  LDA timer_second_digit
-  CLC
-  ADC #$40
-  STA $0201, X; tile number of first sprite
-  LDA #$00
-  STA $0202, X ; attributes of first sprite
-  LDA #219
-  STA $0203, X ; X-coord of first sprite
+    ;; Draw second number
+    LDX #$50
+    LDA #2
+    STA $0200, X ; Y-coord of first sprite
+    LDA score_second_digit
+    CLC
+    ADC #$40
+    STA $0201, X; tile number of first sprite
+    LDA #$00
+    STA $0202, X ; attributes of first sprite
+    LDA #219
+    STA $0203, X ; X-coord of first sprite
 
-  ;; Draw third number
-  LDX #$60
-  LDA #2
-  STA $0200, X ; Y-coord of first sprite
-  LDA timer_third_digit
-  CLC
-  ADC #$40
-  STA $0201, X; tile number of first sprite
-  LDA #$00
-  STA $0202, X ; attributes of first sprite
-  LDA #228
-  STA $0203, X ; X-coord of first sprite
+    ;; Draw third number
+    LDX #$60
+    LDA #2
+    STA $0200, X ; Y-coord of first sprite
+    LDA score_third_digit
+    CLC
+    ADC #$40
+    STA $0201, X; tile number of first sprite
+    LDA #$00
+    STA $0202, X ; attributes of first sprite
+    LDA #228
+    STA $0203, X ; X-coord of first sprite
 
+    JMP end_draw_timer
+
+  draw_timer:
+    ;;Draw first digit
+    LDX #$40
+    LDA #2
+    STA $0200, X ; Y-coord of first sprite
+    LDA timer_first_digit
+    CLC
+    ADC #$40
+    STA $0201, X; tile number of first sprite
+    LDA #$00
+    STA $0202, X ; attributes of first sprite
+    LDA #210
+    STA $0203, X ; X-coord of first sprite
+
+    ;; Draw second number
+    LDX #$50
+    LDA #2
+    STA $0200, X ; Y-coord of first sprite
+    LDA timer_second_digit
+    CLC
+    ADC #$40
+    STA $0201, X; tile number of first sprite
+    LDA #$00
+    STA $0202, X ; attributes of first sprite
+    LDA #219
+    STA $0203, X ; X-coord of first sprite
+
+    ;; Draw third number
+    LDX #$60
+    LDA #2
+    STA $0200, X ; Y-coord of first sprite
+    LDA timer_third_digit
+    CLC
+    ADC #$40
+    STA $0201, X; tile number of first sprite
+    LDA #$00
+    STA $0202, X ; attributes of first sprite
+    LDA #228
+    STA $0203, X ; X-coord of first sprite
+
+  end_draw_timer:
 
   PLA
   TAY
@@ -1256,11 +1357,6 @@ RTS
   PHA
   ;Before drawing the sprite we need to update
   check_if_timer_finished:
-    ; LDA timer_first_digit
-    ; CLC
-    ; ADC timer_second_digit
-    ; ADC timer_third_digit
-    ; CMP #$00
     LDA timer_third_digit
     CMP #$00
     BNE skip_set_game_over_flag
